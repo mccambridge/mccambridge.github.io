@@ -1,0 +1,3 @@
+permalink: pretty
+comments: true
+exclude: [deploy.rb, Capfile]

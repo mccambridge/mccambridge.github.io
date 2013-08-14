@@ -1,0 +1,2 @@
+jekyll build
+rsync -avz -e "ssh -p 2200" ./_site/ root@seanmccambridge.com:/home/mccambs/public_html
