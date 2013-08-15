@@ -27,6 +27,7 @@
 		},
 
 		hoverParallax: function(e) {
+			return false;
 			var $this = $(this);
 			// get mouse position relative to pavement div, create y value
 			var yProp = e.pageY / $this.height(); // y proportion
