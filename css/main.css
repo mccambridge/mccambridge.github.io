@@ -1,3 +1,6 @@
+/* keep in mind this site is pretty old
+ * I use much more robust CSS build techniques these days */
+
 /*
 * HTML5 Boilerplate
 *
@@ -193,7 +196,7 @@ pre {
 #pavement-ends ul li a:hover, #pavement-ends ul li a:active {
   color: #fff;
 }
-#pavement-ends ul li a:hover:after, #pavement-ends ul li a:active:after {
+#pavement-ends ul li a:after {
   content: '*';
   width: 12px;
   height: 12px;
@@ -201,9 +204,14 @@ pre {
   position: absolute;
   left: 50%;
   display: inline-block;
-  top: 33px;
-  font-size: 27px;
+  top: 135%;
+  font-size: 80%;
   transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+#pavement-ends ul li a:hover:after, #pavement-ends ul li a:active:after {
+  opacity: 1;
 }
 #pavement-ends ul li a span {
   font-size: 0.8em;
@@ -860,48 +868,52 @@ Not mobile first :(
 ========================================================================== */
 
 @media only screen and (max-width: 481px) {
-body {
-  min-width: 0;
-}
-.plain {
-  padding: 2em 6%;
-}
-#blog-sidebar {
-  position: static;
-  opacity: 1;
-  width: auto;
-  padding: 1em 5%;
-  font-size: 1.2em;
-  text-align: center;
-}
-#blog-sidebar nav ul {
-  font-size: 0.85em;
-}
-#blog-sidebar nav ul li {
-  margin: 0;
-}
-#blog-sidebar ul li {
-  margin: 1em 0;
-}
-#blog-sidebar p {
-  text-align: left;
-  font-size: 0.8em;
-}
-#blog-sidebar p.center {
-  text-align: center;
-  font-size: 1em;
-}
-#post, #listing {
-  width: 100%;
-  padding: 0;
-  font-size: 1.2em;
-}
-#post h1, #listing h1 {
-  font-size: 1.5em;
-}
-#post h2, #listing h2 {
-  font-size: 1.25em;
-}
+  body {
+    min-width: 0;
+  }
+  #home-cta {
+    padding-top: 6px;
+    padding-bottom: 4px;
+  }
+  .plain {
+    padding: 2em 6%;
+  }
+  #blog-sidebar {
+    position: static;
+    opacity: 1;
+    width: auto;
+    padding: 1em 5%;
+    font-size: 1.2em;
+    text-align: center;
+  }
+  #blog-sidebar nav ul {
+    font-size: 0.85em;
+  }
+  #blog-sidebar nav ul li {
+    margin: 0;
+  }
+  #blog-sidebar ul li {
+    margin: 1em 0;
+  }
+  #blog-sidebar p {
+    text-align: left;
+    font-size: 0.8em;
+  }
+  #blog-sidebar p.center {
+    text-align: center;
+    font-size: 1em;
+  }
+  #post, #listing {
+    width: 100%;
+    padding: 0;
+    font-size: 1.2em;
+  }
+  #post h1, #listing h1 {
+    font-size: 1.5em;
+  }
+  #post h2, #listing h2 {
+    font-size: 1.25em;
+  }
 }
 
 

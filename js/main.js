@@ -126,9 +126,7 @@
 			$('#local-photos, #local-work, #local-blog').on('click', function(e) {
 				e.preventDefault();
 				var href = $(this).attr('href');
-				window.location.hash = href;
-				var here = '#' + href.replace(/\//g, '');
-				$.scrollTo(here, 800, {easing: 'easeInOutQuart'});
+				$.scrollTo(href, 800, {easing: 'easeInOutQuart'});
 			});
 			$('#work-list').find('a').on('click', function(e) {
 				Sean.workThumbs($(this));
