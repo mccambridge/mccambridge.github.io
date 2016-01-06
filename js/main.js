@@ -1,3 +1,8 @@
+/* whew, this is old school!
+ * it's time for an update. until then, enjoy the classic!
+ * cobbler's children's shoes and all
+ */
+
 (function($) {
 	var Sean = {
 		// properties
@@ -129,11 +134,14 @@
 				Sean.workThumbs($(this));
 				e.preventDefault();
 			});
-			$('#photos').find('.button').on('click', function(e) {
-				var dir = $(this).data('dir') || 1;
-				Sean.advancePhotos(dir);
-				e.preventDefault();
-			}).end().waypoint(function(dir) {
+			// $('#photos').find('.button').on('click', function(e) {
+			// 	var dir = $(this).data('dir') || 1;
+			// 	Sean.advancePhotos(dir);
+			// 	e.preventDefault();
+			// }).end().waypoint(function(dir) {
+			// 	Sean.handlePhotoWaypoint(dir);
+			// });
+			$('#photos').waypoint(function(dir) {
 				Sean.handlePhotoWaypoint(dir);
 			});
 			$('#blog').waypoint(function(dir) {
@@ -148,6 +156,7 @@
 
 			//this.cycleBlogSlogans();
 			//this.setRandomBlogSlogan();
+			setTimeout(function() { Sean.bodyFont() }, 0);
 		}
 	}
 	$(document).ready(function() {
