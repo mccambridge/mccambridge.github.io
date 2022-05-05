@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--Created using XmlSitemapGenerator.org - Free HTML, RSS and XML sitemap generator-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  <url>
+    <loc>http://seanmccambridge.com/</loc>
+  </url>
+  <url>
+    <loc>http://seanmccambridge.com/blog/</loc>
+  </url>
+  <url>
+    <loc>http://seanmccambridge.com/</loc>
+  </url>
+  <url>
+    <loc>http://seanmccambridge.com/2013/01/01/new-site-up-and-running/</loc>
+  </url>
+  <url>
+    <loc>http://seanmccambridge.com/2013/06/28/jekyll-vs-wordpress/</loc>
+  </url>
+  <url>
+    <loc>http://seanmccambridge.com/2013/01/14/proportional-design/</loc>
+  </url>
+  <url>
+    <loc>http://seanmccambridge.com/2013/02/06/youtube-iframe-embeds-down/</loc>
+  </url>
+  <url>
+    <loc>http://seanmccambridge.com/2018/06/30/the-absence-of-good/</loc>
+  </url>
+  <url>
+    <loc>http://seanmccambridge.com/2013/08/15/grub-globe-mapbox-js/</loc>
+  </url>
+  <url>
+    <loc>http://seanmccambridge.com/2018/06/25/maintainability-is-everything/</loc>
+  </url>
+  <url>
+    <loc>http://seanmccambridge.com/about/</loc>
+  </url>
+  <url>
+    <loc>http://seanmccambridge.com/2019/09/03/you-cant-do-it-all-at-once/</loc>
+  </url>
+  <url>
+    <loc>http://seanmccambridge.com/privacy/</loc>
+  </url>
+  <url>
+    <loc>http://seanmccambridge.com/subaru/</loc>
+  </url>
+  <url>
+    <loc>http://seanmccambridge.com/tubular/</loc>
+  </url>
+</urlset>
