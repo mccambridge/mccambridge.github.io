@@ -68,7 +68,7 @@ const Canyon = (ctx, canvas) => {
   const SIZE_REPEL_FULL = 210;   // px — at/above this: full effect
   const REPEL_MAX_DIST = 240 * motionScale;  // scales with viewport
   const REPEL_LERP = 0.20;  // per-frame lerp in (snappy response)
-  const REPEL_RETURN = 0.075; // lerp back to 0 — slower = more graceful float-back
+  const REPEL_RETURN = 0.02;  // very slow drift back — shapes linger displaced for seconds
 
   // ── Clear ──────────────────────────────────────────────────────────────────
 
