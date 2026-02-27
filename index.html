@@ -1,122 +1,150 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8">
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://fonts.googleapis.com/css?family=Alegreya+Sans:400,800" rel="stylesheet">
-    <link rel="stylesheet" href="/css/milligram.min.css" />
-    <title>Sean McCambridge</title>
-    <style>
-      * {
-        box-sizing: border-box;
-      }
-      html, body {
-        min-height: 100vh;
-        margin: 0;
-        padding: 0;
-        font-size: 16px;
-      }
-      body {
-        background: hsl(90, 100%, 22%);
-        color: #888;
-      }
-      .container {
-        background: #fff;
-        position: relative;
-        width: 100vw;
-        height: 100vh;
-        max-height: 100vh;
-        overflow: hidden;
 
-      }
-      #canvas {
-        width: 80px;
-        height: 45px;
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translateX(-50%) translateY(-50%);
-      }
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css?family=Alegreya+Sans:400,800" rel="stylesheet">
+  <link rel="stylesheet" href="/css/milligram.min.css" />
+  <title>Sean McCambridge</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+      font-size: 16px;
+    }
+
+    body {
+      background: hsl(90, 100%, 22%);
+      color: #888;
+    }
+
+    .container {
+      background: #fff;
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
+
+    }
+
+    #canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    .content {
+      font-family: 'Alegreya Sans', sans-serif;
+      color: #222;
+      max-width: 540px;
+      position: absolute;
+      bottom: 15%;
+      left: 0;
+      padding: 0 15px;
+      /* Let all pointer events fall through to the canvas below */
+      pointer-events: none;
+    }
+
+    h1 {
+      font-size: 54px;
+      font-weight: bold;
+      letter-spacing: 0;
+      line-height: 1.1em;
+      padding: 0;
+      margin: 0 0 0.35em;
+    }
+
+    h2 {
+      font-weight: normal;
+      font-size: 2.25rem;
+      margin: 0.5em 0;
+    }
+
+    h4 {
+      font-size: 1.75rem;
+    }
+
+    a.button {
+      margin-top: 1.25rem;
+      margin-bottom: 0.25rem;
+      background-color: hsla(65, 68%, 40%, 0.7);
+      border: none;
+      font-size: 1.25rem;
+      font-weight: normal;
+      border-radius: 12px;
+      padding: 0 2rem;
+      /* Buttons opt back in so clicks/hovers still work */
+      pointer-events: auto;
+    }
+
+    a.button:last-of-type {
+      margin-top: 0.5rem;
+      background-color: hsla(0, 5%, 50%, 0.8);
+    }
+
+    a.button:hover,
+    a.button:active {
+      background-color: hsla(70, 100%, 45%, 0.9);
+    }
+
+    a.button:last-of-type:hover,
+    a.button:last-of-type:active {
+      background-color: hsla(240, 26%, 69%, 0.95);
+    }
+
+    .text-accent {
+      color: hsl(330, 95%, 22%)
+    }
+
+    @media screen and (min-width: 768px) {
       .content {
-        font-family: 'Alegreya Sans', sans-serif;
-        color: #222;
-        max-width: 540px;
-        position: absolute;
-        bottom: 15%;
-        left: 0;
-        padding: 0 15px;
+        left: 12.5%;
       }
-      h1 {
-        font-size: 54px;
-        font-weight: bold;
-        letter-spacing: 0;
-        line-height: 1.1em;
-        padding: 0;
-        margin: 0 0 0.35em;
-      }
+
       h2 {
-        font-weight: normal;
-        font-size: 2.25rem;
-        margin: 0.5em 0;
+        font-size: 2.5rem;
       }
-      h4 {
-        font-size: 1.75rem;
+
+      .content {
+        bottom: 7%;
       }
-      a.button {
-        margin-top: 1.25rem;
-        margin-bottom: 0.25rem;
-        background-color: hsla(65, 68%, 40%, 0.7);
-        border: none;
-        font-size: 1.25rem;
-        font-weight: normal;
-        border-radius: 12px;
-        padding: 0 2rem;
-      }
-      a.button:last-of-type {
-        margin-top: 0.5rem;
-        background-color: hsla(0, 5%, 50%, 0.8);
-      }
-      a.button:hover, a.button:active {
-        background-color: hsla(70, 100%, 45%, 0.9);
-      }
-      a.button:last-of-type:hover, a.button:last-of-type:active {
-        background-color: hsla(240, 26%, 69%, 0.95);
-      }
-      .text-accent {
-        color: hsl(330, 95%, 22%)
-      }
-      @media screen and (min-width: 768px) {
-        .content {
-          left: 12.5%;
-        }
-        h2 {
-          font-size: 2.5rem;
-        }
-        .content {
-          bottom: 7%;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <canvas width="800" height="450" id="canvas"></canvas>
-      <div class="content">
-        <h1>Sean McCambridge</h1>
-        <h2>I'm a creative front-end developer based in Charleston,&nbsp;SC</h2>
-        <h4>I <span class="text-accent">♥</span> design. I work in Next.js, Node, &amp;&nbsp; CSS</h4>
-        <h2>
-          <a class="button" target="_blank" href="mailto:seanmccambridgedesign@gmail.com?subject=hello">Let's chat!</a><br>
-          <a class="button" target="_blank" href="https://instagram.com/seanmccambridge">Boats are real</a>
-        </h2>
-      </div>
-      <!-- <div class="heart-container">
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <canvas id="canvas"></canvas>
+    <div class="content">
+      <h1>Sean McCambridge</h1>
+      <h2>I'm a creative front-end developer based in Charleston,&nbsp;SC</h2>
+      <h4>I <span class="text-accent">♥</span> design. I work in Next.js, Node, &amp;&nbsp; CSS</h4>
+      <h2>
+        <a class="button" target="_blank" href="mailto:seanmccambridgedesign@gmail.com?subject=hello">Let's
+          chat!</a><br>
+        <a class="button" target="_blank" href="https://instagram.com/seanmccambridge">Boats are real</a>
+      </h2>
+    </div>
+    <!-- <div class="heart-container">
         <a class="heart" href="/"></a>
       </div> -->
-    </div>
-    <script src="/assets/js/plus.js"></script>
-    <script src="/assets/js/index.js"></script>
-  </body>
+  </div>
+  <script src="/assets/js/plus-es6.js"></script>
+  <script src="/assets/js/index-es6.js"></script>
+</body>
+
 </html>
