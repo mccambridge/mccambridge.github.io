@@ -1,64 +1,184 @@
-(function() {
-  const items = 160;
+'use strict';
+
+(function () {
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
+  const $c = Canyon(ctx, canvas);
 
-  const $c = Canyon(ctx);
+  // ── Viewport / DPR sizing ─────────────────────────────────────────────────
 
-  const create = () => {
-    $c.kill();
-    $c.clearArtboard();
+  function setDimensions() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    // Scale context once so all drawing coords are in logical CSS px
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+  }
+
+  // ── Build a fresh field of plusses ────────────────────────────────────────
+
+  function buildPlusses() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    // ── Size scale: proportional to viewport width ─────────────────────────
+    // Reference is 1703px (the desktop where sizes look right).
+    // sqrt curve: iPhone 390px → ~0.48×, Tablet 768px → ~0.67×, Desktop 1703px → 1.0×.
+    const refWidth = 1703;
+    const sizeScale = Math.max(0.35, Math.pow(w / refWidth, 0.5));
+
+    // ── Size distribution: power=5.0 ──────────────────────────────────────
+    // All pixel sizes multiplied by sizeScale so they feel right at any width.
+    const minSize = Math.round(20 * sizeScale);
+    const maxSize = Math.round(280 * sizeScale);
+    const sizeRange = maxSize - minSize;
+
+    // ── Count scales with viewport area ────────────────────────────────────
+    // 0.75 exponent keeps mobile from overcrowding.
+    // Desktop 1728×992 → ~145 | tablet 768×1024 → ~78 | phone 390×844 → ~42
+    const refArea = 1728 * 992;
+    const vpArea = w * h;
+    const count = Math.round(Math.min(Math.max(145 * Math.pow(vpArea / refArea, 0.75), 22), 180));
+
     const plusses = [];
-    for (let i = 0; i < items; i++) {
-      const x = getRandomInt(0, 800);
-      const y = getRandomInt(0, 450);
-      const size = getRandomInt(10, 35);
-      const gray = getRandomInt(100, 200);
-      const opacity = getRandomInt(25, 85) / 100;
-      const rotation = getRandomInt(0, 360);
-      const rpm = getRandomInt(0.5, 10);
-      plusses.push({params: [x, y, size, gray, opacity, rotation, rpm]});
-    }
-    plusses.forEach(plus => $c.drawPlus(plus.params[0], plus.params[1], plus.params[2],`rgba(${plus.params[3]}, ${plus.params[3]}, ${plus.params[3]} ,${plus.params[4]})`, plus.params[5]));
 
-    $c.defineAnimation(() => {
-      $c.clearArtboard();
-      $c.init(plusses);
-      $c.randomMovement();
-      $c.moveCircular();
-    });
+    // ── Hero: large teal ──
+    plusses.push(makeThing(
+      getRandomInt(0, w), getRandomInt(0, h),
+      Math.round(250 * sizeScale),
+      'rgba(30, 255, 250, 0.65)',
+      getRandomInt(0, 360), getRandomInt(4, 12)
+    ));
+
+    // ── Hero: red ──
+    plusses.push(makeThing(
+      getRandomInt(0, w), getRandomInt(0, h),
+      Math.round(115 * sizeScale),
+      'rgba(200, 50, 50, 0.5)',
+      getRandomInt(0, 360), getRandomInt(4, 12)
+    ));
+
+    // ── Random field: power=4.0 distribution ───────────────────────────────
+    // ~50% below 37px (body presence, not dots), top 10% above 190px (rare drama).
+    // Large ones span 190–280px when they appear — genuinely varied at the top end.
+    for (let i = 0; i < count; i++) {
+      const t = Math.pow(Math.random(), 5.0);  // steep → lots of smalls, very few larges
+      const size = Math.round(minSize + t * sizeRange);
+
+      const red = getRandomInt(50, 120);
+      const green = getRandomInt(100, 200);
+      const blue = getRandomInt(100, 220);
+      const opacity = (Math.sqrt(size / maxSize) * 0.68).toFixed(3);
+
+      plusses.push(makeThing(
+        getRandomInt(0, w), getRandomInt(0, h),
+        size,
+        'rgba(' + red + ', ' + green + ', ' + blue + ', ' + opacity + ')',
+        getRandomInt(0, 360), getRandomInt(2, 14)
+      ));
+    }
+
+    return plusses;
+  }
+
+  function makeThing(x, y, size, color, startRot, rpm) {
+    return {
+      x, y, size, color, startRot, rpm,
+      repelDx: 0, repelDy: 0,
+      ripple0Dx: 0, ripple0Dy: 0,
+      rippleStart: 0, rippleDuration: 0,
+    };
+  }
+
+  // ── Create / reset the scene ──────────────────────────────────────────────
+
+  function create() {
+    $c.kill();
+    setDimensions();
+    $c.clearArtboard();
+    const plusses = buildPlusses();
+    $c.init(plusses);
+    $c.defineAnimation((now, mx, my) => $c.drawFrame(now, mx, my));
     $c.start();
   }
 
+  // ── Mouse / pointer tracking ──────────────────────────────────────────────
+
+  canvas.addEventListener('pointermove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    $c.setMouse(e.clientX - rect.left, e.clientY - rect.top);
+  });
+
+  canvas.addEventListener('pointerleave', () => {
+    $c.clearMouse();
+  });
+
+  // ── Click / tap: single = ripple, double = reset ─────────────────────────
+
+  let lastTapTime = 0;
+  const DOUBLE_TAP_MS = 350;
+
+  function handleTap(x, y) {
+    const now = Date.now();
+    if (now - lastTapTime < DOUBLE_TAP_MS) {
+      create();
+    } else {
+      $c.ripple(x, y);
+    }
+    lastTapTime = now;
+  }
+
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    handleTap(e.clientX - rect.left, e.clientY - rect.top);
+  });
+
+  canvas.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    const touch = e.changedTouches[0];
+    const rect = canvas.getBoundingClientRect();
+    handleTap(touch.clientX - rect.left, touch.clientY - rect.top);
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    $c.setMouse(touch.clientX - rect.left, touch.clientY - rect.top);
+  }, { passive: false });
+
+  canvas.addEventListener('touchstart', () => { }, { passive: true });
+
+  // ── Resize: refit, don't reset ───────────────────────────────────────────
+
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      const dpr = window.devicePixelRatio || 1;
+      const newW = Math.round(window.innerWidth * dpr);
+      const newH = Math.round(window.innerHeight * dpr);
+      if (Math.abs(newW - canvas.width) > 10 || Math.abs(newH - canvas.height) > 10) {
+        setDimensions();
+      }
+    }, 150);
+  });
+
+  window.addEventListener('orientationchange', () => {
+    setTimeout(setDimensions, 300);
+  });
+
+  // ── Boot ──────────────────────────────────────────────────────────────────
+
   create();
-
-  window.addEventListener('resize', setDimensions);
-
-  document.getElementById('canvas').addEventListener('click', create);
-  // document.getElementById('canvas').addEventListener('touch', create);
-
-  setTimeout(setDimensions, 100);
 
 })();
 
 function getRandomInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function setDimensions() {
-  const ratio = 80/45;
-  const windowWidth = window.innerWidth;
-  const windowHeight = window.innerHeight;
-
-  console.info(windowWidth);
-
-  if (windowWidth/windowHeight < ratio) {
-    console.info('A');
-    document.getElementById('canvas').style.width = `${windowHeight * ratio}px`;
-    document.getElementById('canvas').style.height = `${windowHeight}px`;
-  } else {
-    console.info('B', windowHeight, windowHeight / ratio);
-    document.getElementById('canvas').style.width = `${windowWidth}px`;
-    document.getElementById('canvas').style.height = `${windowWidth / ratio}px`;
-  }
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
