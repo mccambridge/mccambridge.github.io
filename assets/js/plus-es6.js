@@ -57,14 +57,18 @@ const Canyon = (ctx, canvas) => {
   const frameMs = 1000 / fpsLimit;
   let lastFrameTime = 0;
 
+  // Motion scale: halve distances on mobile (floors at 0.5 on narrow screens).
+  // Computed once at Canyon init from the current viewport width.
+  const motionScale = Math.max(0.5, Math.sqrt(window.innerWidth / 1703));
+
   // Mouse repulsion — size-proportional:
   //   t.size < SIZE_REPEL_DEAD  → completely immune (background texture)
   //   t.size ≥ SIZE_REPEL_FULL  → maximum displacement / radius
-  const SIZE_REPEL_DEAD = 45;   // px — below this: no movement at all
-  const SIZE_REPEL_FULL = 210;  // px — at/above this: full effect
-  const REPEL_MAX_DIST = 240;  // logical px — max displacement for biggest shapes
-  const REPEL_LERP = 0.20; // per-frame lerp factor (higher = snappier)
-  const REPEL_RETURN = 0.10; // lerp back to 0 when outside radius
+  const SIZE_REPEL_DEAD = 45;    // px — below this: no movement at all
+  const SIZE_REPEL_FULL = 210;   // px — at/above this: full effect
+  const REPEL_MAX_DIST = 240 * motionScale;  // scales with viewport
+  const REPEL_LERP = 0.20;  // per-frame lerp in (snappy response)
+  const REPEL_RETURN = 0.075; // lerp back to 0 — slower = more graceful float-back
 
   // ── Clear ──────────────────────────────────────────────────────────────────
 
@@ -133,7 +137,11 @@ const Canyon = (ctx, canvas) => {
           const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
 
           if (dist < radius) {
-            const push = (1 - dist / radius) * strength;
+            // Cubic falloff: (1 - u³) where u = dist/radius.
+            // Much stronger near the cursor, fades gently at the zone edge
+            // — feels natural and weighted vs. the old mechanical linear push.
+            const u = dist / radius;
+            const push = (1 - u * u * u) * strength;
             targetRepelX = (dx / dist) * push;
             targetRepelY = (dy / dist) * push;
           }
@@ -190,14 +198,31 @@ const Canyon = (ctx, canvas) => {
 
   const _ripple = (px, py) => {
     const now = performance.now();
+    // Size-proportional burst: same dead/full thresholds as mouse repulsion.
+    // Small (≤ 45px): baseline burst   (sizeMult = 1.0 → up to 280px)
+    // Large (≥ 210px): 2× burst        (sizeMult = 2.0 → up to 560px)
+    const RIPPLE_BASE = 280 * motionScale;  // halved on mobile via motionScale
+    const RIPPLE_SCALE = 2.0;  // multiplier at full size
+    const SIZE_DEAD = 45;
+    const SIZE_FULL = 210;
+
     things.forEach((t, i) => {
-      // Current visual position (approximate — ignore in-flight drift)
       const dx = t.x - px;
       const dy = t.y - py;
       const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
-      // Strength falls off linearly with distance (400px falloff)
-      const strength = Math.max(0, 1 - dist / 400) * 280;
+
+      // Distance falloff (400px radius)
+      const falloff = Math.max(0, 1 - dist / 400);
+      if (falloff <= 0) return;
+
+      // Size multiplier: 1.0 for small/medium, up to RIPPLE_SCALE for large
+      const sizeFactor = Math.max(0, Math.min(1,
+        (t.size - SIZE_DEAD) / (SIZE_FULL - SIZE_DEAD)
+      ));
+      const mult = 1 + sizeFactor * (RIPPLE_SCALE - 1);
+      const strength = falloff * RIPPLE_BASE * mult;
       if (strength < 1) return;
+
       const angle = Math.atan2(dy, dx);
       t.ripple0Dx = Math.cos(angle) * strength;
       t.ripple0Dy = Math.sin(angle) * strength;

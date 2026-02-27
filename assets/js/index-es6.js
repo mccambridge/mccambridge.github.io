@@ -26,13 +26,16 @@
     const w = window.innerWidth;
     const h = window.innerHeight;
 
-    // ── Size distribution: power=4.0 ──────────────────────────────────────
-    // minSize=20 so even the small ones have real body.
-    // maxSize=280 for a wider ceiling — rare to hit but dramatic when it does.
-    // power=4.0: ~50% of plusses fall below 37px, top 10% above 190px,
-    //            top 5% above 230px — those few span 190–280px for wide variety.
-    const minSize = 20;
-    const maxSize = 280;
+    // ── Size scale: proportional to viewport width ─────────────────────────
+    // Reference is 1703px (the desktop where sizes look right).
+    // sqrt curve: iPhone 390px → ~0.48×, Tablet 768px → ~0.67×, Desktop 1703px → 1.0×.
+    const refWidth = 1703;
+    const sizeScale = Math.max(0.35, Math.pow(w / refWidth, 0.5));
+
+    // ── Size distribution: power=5.0 ──────────────────────────────────────
+    // All pixel sizes multiplied by sizeScale so they feel right at any width.
+    const minSize = Math.round(20 * sizeScale);
+    const maxSize = Math.round(280 * sizeScale);
     const sizeRange = maxSize - minSize;
 
     // ── Count scales with viewport area ────────────────────────────────────
@@ -47,7 +50,7 @@
     // ── Hero: large teal ──
     plusses.push(makeThing(
       getRandomInt(0, w), getRandomInt(0, h),
-      250,
+      Math.round(250 * sizeScale),
       'rgba(30, 255, 250, 0.65)',
       getRandomInt(0, 360), getRandomInt(4, 12)
     ));
@@ -55,7 +58,7 @@
     // ── Hero: red ──
     plusses.push(makeThing(
       getRandomInt(0, w), getRandomInt(0, h),
-      115,
+      Math.round(115 * sizeScale),
       'rgba(200, 50, 50, 0.5)',
       getRandomInt(0, 360), getRandomInt(4, 12)
     ));
