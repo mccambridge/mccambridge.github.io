@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Sailing Prototype - Level 0</title>
+    <style>
+        :root {
+            --sea: #4fc3f7;
+            --land: #aed581;
+            --beach: #fff59d;
+            --ui-bg: rgba(255, 255, 255, 0.85);
+            --text: #2c3e50;
+            --accent: #e74c3c;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: var(--sea);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
+            /* Prevent pulling to refresh on mobile */
+            color: var(--text);
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Full Screen Overlays */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(79, 195, 247, 0.9);
+            z-index: 100;
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Start Screen */
+        .title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 0 #2980b9;
+            margin-bottom: 2rem;
+        }
+
+        .archetype-container {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn-ship {
+            background: var(--ui-bg);
+            border: 4px solid #fff;
+            border-radius: 12px;
+            padding: 1.5rem;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
+            text-align: center;
+            width: 200px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.1s;
+        }
+
+        .btn-ship:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-ship:active {
+            transform: translateY(2px);
+        }
+
+        .btn-ship span {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: normal;
+            color: #555;
+            margin-top: 0.5rem;
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Wind Indicator */
+        #wind-compass {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 80px;
+            height: 80px;
+            background: var(--ui-bg);
+            border: 3px solid #ccc;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        #wind-compass-label {
+            position: absolute;
+            top: 105px;
+            left: 60px;
+            /* Center of the compass (20px left + 40px radius) */
+            transform: translateX(-50%);
+            background: var(--ui-bg);
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-weight: 900;
+            font-size: 1.1rem;
+            color: #2c3e50;
+            text-align: center;
+        }
+
+        #wind-arrow {
+            font-size: 2rem;
+            color: #3498db;
+            /* Will be rotated by JS */
+        }
+
+        /* Trim & Speed Controls Wrapper */
+        #right-panel {
+            position: absolute;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: auto;
+        }
+
+        /* Trim Slider */
+        #trim-container {
+            background: var(--ui-bg);
+            padding: 20px 10px;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        #trim-label {
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: slider-vertical;
+            appearance: slider-vertical;
+            width: 30px;
+            height: 200px;
+            cursor: pointer;
+        }
+
+        /* Feedback Label */
+        #trim-feedback {
+            margin-top: 15px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: var(--text);
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: #eee;
+            width: 80px;
+            text-align: center;
+        }
+
+        #trim-feedback.warning {
+            background: #ffeaa7;
+            color: #d35400;
+        }
+
+        #trim-feedback.error {
+            background: #ff7675;
+            color: #fff;
+        }
+
+        #trim-feedback.good {
+            background: #55efc4;
+            color: #00b894;
+        }
+
+        #trim-feedback.best {
+            background: #74b9ff;
+            color: #0984e3;
+        }
+
+        /* Speed Indicator */
+        #speed-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: var(--ui-bg);
+            padding: 10px 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .speed-text {
+            font-weight: bold;
+            font-size: 1rem;
+            color: var(--text);
+            margin-left: 8px;
+            width: 48px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .speed-bar {
+            width: 15px;
+            height: 20px;
+            background: #ddd;
+            border-radius: 3px;
+        }
+
+        .speed-bar.active {
+            background: #2ecc71;
+        }
+
+        /* Minimap */
+        #minimap-container {
+            position: absolute;
+            bottom: 110px;
+            left: 20px;
+            width: 270px;
+            height: 270px;
+            background: rgba(255, 255, 255, 0.85);
+            /* Clean, frosted paper look */
+            border: 4px solid #bdc3c7;
+            /* Matches compass */
+            border-radius: 50%;
+            overflow: hidden;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        #minimap-canvas {
+            width: 270px;
+            height: 270px;
+        }
+
+        /* Mobile Rudder Buttons */
+        #rudder-buttons {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        .btn-rudder {
+            width: 70px;
+            height: 70px;
+            background: var(--ui-bg);
+            border: none;
+            border-radius: 50%;
+            font-size: 2rem;
+            color: #555;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        .btn-rudder:active {
+            background: #ddd;
+            transform: scale(0.95);
+        }
+
+        /* Tutorial */
+        #tutorial {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--ui-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #3498db;
+            text-align: center;
+            width: 360px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            pointer-events: auto;
+            z-index: 20;
+        }
+
+        #tutorial h3 {
+            margin: 0 0 10px;
+        }
+
+        #tutorial ul {
+            text-align: left;
+            padding-left: 20px;
+            font-size: 0.9rem;
+        }
+
+        #btn-close-tut {
+            margin-top: 10px;
+            padding: 6px 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container">
+        <canvas id="canvas"></canvas>
+
+        <div id="hud" class="hidden">
+            <div id="wind-compass">
+                <div id="wind-arrow">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="#3498db">
+                        <path d="M12 22L8 14H11V2H13V14H16L12 22Z" />
+                    </svg>
+                </div>
+            </div>
+            <div id="wind-compass-label">Wind</div>
+
+            <div id="right-panel">
+                <div id="trim-container">
+                    <div id="trim-label">Trim</div>
+                    <input type="range" id="trim-slider" min="0" max="100" value="50">
+                    <div id="trim-feedback" class="good">Good</div>
+                </div>
+            </div>
+
+            <div id="speed-container">
+                <div class="speed-bar" id="sb-1"></div>
+                <div class="speed-bar" id="sb-2"></div>
+                <div class="speed-bar" id="sb-3"></div>
+                <div class="speed-bar" id="sb-4"></div>
+                <div class="speed-bar" id="sb-5"></div>
+                <div class="speed-text" id="speed-text">0.0 kt</div>
+            </div>
+
+            <div id="minimap-container">
+                <canvas id="minimap-canvas" width="540" height="540"></canvas>
+            </div>
+
+            <div id="rudder-buttons">
+                <div class="btn-rudder" id="btn-left">
+                    <svg viewBox="0 0 24 24" width="36" height="36" fill="#2c3e50">
+                        <path d="M15 19L8 12L15 5V19Z" />
+                    </svg>
+                </div>
+                <div class="btn-rudder" id="btn-right">
+                    <svg viewBox="0 0 24 24" width="36" height="36" fill="#2c3e50">
+                        <path d="M9 19L16 12L9 5V19Z" />
+                    </svg>
+                </div>
+            </div>
+
+            <div id="tutorial">
+                <h3>Captain's Basics</h3>
+                <ul>
+                    <li>Use <b>A/D</b> or touch buttons to steer.</li>
+                    <li>Adjust <b>Trim slider</b> (or W/S) trim your sheets.</li>
+                    <li>Or use arrow keys.</li>
+                    <li>Avoid pointing straight into wind!</li>
+                    <li>Tack (zig-zag) to go upwind.</li>
+                    <li>Keep your sails trimmed to catch the wind.</li>
+                </ul>
+                <button id="btn-close-tut">Got It</button>
+            </div>
+        </div>
+
+        <div id="start-screen" class="overlay">
+            <div class="title">Broadside: Prototype</div>
+            <div class="archetype-container">
+                <button class="btn-ship" id="btn-start">
+                    START SAILING
+                    <span>Click to weigh anchor</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONSTANTS ---
+        const CONFIG = {
+            mapRadius: 1500, // Circular safe zone roughly
+            islandCount: 12
+        };
+
+        // --- GAME STATE ---
+        let state = {
+            playing: false,
+            tutorialOpen: true,
+            stuckTimer: 0,
+            lastTime: 0,
+            trueWind: {
+                spd: 200, // "Wind force" pixels per sec sort of scaling
+                dir: 0    // Angle (will be random)
+            },
+            keys: {
+                left: false, right: false, up: false, down: false
+            }
+        };
+
+        let dolphins = [];
+        let boat = {
+            x: 0, y: 0,
+            vx: 0, vy: 0,
+            heading: -Math.PI / 2, // North 
+            rudder: 0,  // -1 to 1
+            trim: 50,   // 0 to 100
+
+            // Physics Profile (set by archetype)
+            mass: 0, dragFwd: 0, dragLat: 0, turnRate: 0, baseDrive: 0, hullSpeed: 0,
+            width: 0, length: 0, color: ''
+        };
+
+        let islands = [];
+
+        // --- DOM Elements ---
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('start-screen');
+        const hud = document.getElementById('hud');
+        const tutorial = document.getElementById('tutorial');
+        const windArrow = document.getElementById('wind-arrow');
+        const trimSlider = document.getElementById('trim-slider');
+        const trimFeedback = document.getElementById('trim-feedback');
+        const speedBars = [
+            document.getElementById('sb-1'),
+            document.getElementById('sb-2'),
+            document.getElementById('sb-3'),
+            document.getElementById('sb-4'),
+            document.getElementById('sb-5')
+        ];
+        const speedText = document.getElementById('speed-text');
+        const minimapCanvas = document.getElementById('minimap-canvas');
+        const mCtx = minimapCanvas.getContext('2d');
+
+        let width, height;
+
+        // --- INITIALIZATION ---
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            // Handle DPI for crisp rendering
+            let dpr = window.devicePixelRatio || 1;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function initLevel() {
+            // Random true wind direction
+            state.trueWind.dir = Math.random() * Math.PI * 2;
+            // Arrow ⬇ starts pointing south. Wind dir=0 means blowing east; rotate so arrow points east = direction wind travels.
+            windArrow.style.transform = `rotate(${state.trueWind.dir - Math.PI / 2}rad)`;
+
+            // Set starting heading 90 degrees to the wind (beam reach)
+            boat.heading = state.trueWind.dir + Math.PI / 2;
+            boat.vx = 0;
+            boat.vy = 0;
+            boat.trim = 50;
+
+            // Generate map of islands
+            islands = [];
+            for (let i = 0; i < CONFIG.islandCount; i++) {
+                // Ensure no island exactly at 0,0 where we spawn
+                let x, y, r, d;
+                do {
+                    x = (Math.random() - 0.5) * CONFIG.mapRadius * 2;
+                    y = (Math.random() - 0.5) * CONFIG.mapRadius * 2;
+                    r = 40 + Math.random() * 80;
+                    d = Math.hypot(x, y);
+                } while (d < 300); // clear radius around spawn
+
+                islands.push({ x, y, r });
+            }
+
+            trimSlider.value = boat.trim;
+        }
+
+        function startGame(type) {
+            startScreen.classList.add('hidden');
+            hud.classList.remove('hidden');
+
+            // Small boat handling specs
+            boat.mass = 1.0;
+            boat.dragFwd = 1.3; // Calibrated so baseDrive (350) maxes out around 270 naturally
+            boat.dragLat = 3.0;
+            boat.turnRate = 2.2;
+            boat.baseDrive = 350;
+            boat.hullSpeed = 270; // Max theoretical speed before aggressive exponential drag
+
+            // Medium boat visual specs
+            boat.color = '#2ecc71'; // Green
+            boat.width = 22;
+            boat.length = 50;
+
+            initLevel();
+            state.playing = true;
+            state.lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.getElementById('btn-start').addEventListener('click', () => {
+            startGame();
+        });
+
+        document.getElementById('btn-close-tut').addEventListener('click', () => {
+            tutorial.classList.add('hidden');
+            state.tutorialOpen = false;
+        });
+
+        // --- INPUT HANDLING ---
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') state.keys.left = true;
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') state.keys.right = true;
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') state.keys.up = true;
+            if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') state.keys.down = true;
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') state.keys.left = false;
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') state.keys.right = false;
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') state.keys.up = false;
+            if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') state.keys.down = false;
+        });
+
+        trimSlider.addEventListener('input', (e) => {
+            boat.trim = parseInt(e.target.value);
+        });
+
+        // Touch buttons
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+
+        const attachTouch = (el, key) => {
+            el.addEventListener('mousedown', () => state.keys[key] = true);
+            el.addEventListener('mouseup', () => state.keys[key] = false);
+            el.addEventListener('mouseleave', () => state.keys[key] = false);
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); state.keys[key] = true; });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); state.keys[key] = false; });
+        };
+        attachTouch(btnLeft, 'left');
+        attachTouch(btnRight, 'right');
+
+        // --- HELPER MATH ---
+        function angleDiff(a, b) {
+            let d = a - b;
+            while (d > Math.PI) d -= 2 * Math.PI;
+            while (d < -Math.PI) d += 2 * Math.PI;
+            return d;
+        }
+
+        // --- PHYSICS CALCULATION ---
+        function updatePhysics(dt) {
+            // Steering input mappings
+            if (state.keys.left) boat.rudder = -1;
+            else if (state.keys.right) boat.rudder = 1;
+            else boat.rudder = 0;
+
+            // Optional keyboard trim
+            if (state.keys.up) { boat.trim = Math.min(100, boat.trim + 50 * dt); trimSlider.value = boat.trim; }
+            if (state.keys.down) { boat.trim = Math.max(0, boat.trim - 50 * dt); trimSlider.value = boat.trim; }
+
+            // Wind Vectors -> apparent wind
+            let twVx = state.trueWind.spd * Math.cos(state.trueWind.dir);
+            let twVy = state.trueWind.spd * Math.sin(state.trueWind.dir);
+
+            let awVx = twVx - boat.vx;
+            let awVy = twVy - boat.vy;
+            let awMag = Math.hypot(awVx, awVy);
+            let awDir = Math.atan2(awVy, awVx);
+
+            let relWind = angleDiff(awDir, boat.heading); // Angle between heading and apparent wind [-PI, PI]
+            let absRelWind = Math.abs(relWind);
+            // absRelWind ~0 = into wind, ~PI = dead downwind
+
+            // Forward speed (negative = moving backward)
+            let fwdSpeed = boat.vx * Math.cos(boat.heading) + boat.vy * Math.sin(boat.heading);
+
+            // --- No-go zone: within 15° of the APPARENT wind (upwind) ---
+            // Convention: absRelWind ~ 0 = dead downwind, ~ PI = dead upwind (into wind)
+            // In-irons when within 15° of dead upwind
+            let inNoGo = absRelWind > (Math.PI * 11 / 12);
+
+            // --- Sail/Boom Angle ---
+            // trim=100 → sheet fully out → boom can swing up to 90° (PI/2)
+            // trim=0   → sheet fully in → boom stays near centerline
+            let maxSwing = (boat.trim / 100) * (Math.PI / 2);
+
+            // How far does wind want to push the boom out?
+            // absRelWind ~ PI (upwind) → naturalOut ~ 0 (sail luffs amidships)
+            // absRelWind ~ 0 (downwind) → naturalOut ~ PI/2 (boom out wide)
+            let naturalOut = Math.PI / 2 - (absRelWind - Math.PI / 2);
+            naturalOut = Math.max(0, Math.min(naturalOut, Math.PI / 2));
+
+            // Sheet limits how far out boom can go
+            let boomOut = Math.min(naturalOut, maxSwing);
+
+            // Side: relWind > 0 means apparent wind comes from port (travels to starboard)
+            // → boom goes to STARBOARD (negative angle in canvas since it's drawn on -X axis)
+            // relWind < 0 means wind from starboard → boom to PORT (positive angle)
+            let targetSailAngle = (relWind >= 0) ? -boomOut : boomOut;
+
+            if (boat.sailAngle === undefined) boat.sailAngle = targetSailAngle;
+            let sailDiff = angleDiff(targetSailAngle, boat.sailAngle);
+            // Limit boom swing speed so a full 180° gybe takes about ~0.75 - 1 seconds
+            let maxSwingSpeed = 3.6 * dt;
+            let sailMove = sailDiff * 8.0 * dt;
+            boat.sailAngle += Math.max(-maxSwingSpeed, Math.min(maxSwingSpeed, sailMove));
+
+            // Billow: always curves away from wind, further leeward.
+            // relWind >= 0 (wind from port) -> boom stbd, local +Y is stbd -> bSide = 1
+            // relWind < 0 (wind from stbd) -> boom port, local -Y is port -> bSide = -1
+            boat.billowSide = (relWind >= 0) ? 1 : -1;
+
+            // --- Best trim for UI feedback ---
+            // absRelWind ~ PI = upwind → sheet fully IN (trim=0)
+            // absRelWind ~ 0  = downwind → sheet fully OUT (trim=100)
+            let bestTrim = (1.0 - absRelWind / Math.PI) * 100;
+            let trimError = Math.abs(boat.trim - bestTrim);
+
+            // UI Feedback
+            let feedback = "Good";
+            trimFeedback.className = "good";
+            if (inNoGo) {
+                if (fwdSpeed < 15) {
+                    feedback = "In Irons!";
+                    trimFeedback.className = "error";
+                } else {
+                    feedback = "Pinching";
+                    trimFeedback.className = "warning";
+                }
+            } else {
+                if (trimError > 50) {
+                    feedback = boat.trim < bestTrim ? "Let out!" : "Sheet in!";
+                    trimFeedback.className = "error";
+                } else if (trimError > 25) {
+                    feedback = boat.trim < bestTrim ? "Let out" : "Sheet in";
+                    trimFeedback.className = "warning";
+                } else if (trimError <= 10) {
+                    feedback = "Best";
+                    trimFeedback.className = "best";
+                }
+            }
+            trimFeedback.innerText = feedback;
+
+            // --- Drive Force ---
+            let driveForce = 0;
+            if (!inNoGo) {
+                // Trim efficiency: 1.0 at perfect trim, falls off gently with error
+                let eff = Math.max(0.05, 1.0 - (trimError / 70.0));
+
+                // Polar: mapped explicitly using True Wind Angle (TWA) to perfectly hit our targets
+                // Convention: 0 = dead downwind, 180 = dead upwind
+                let absTWA = Math.abs(angleDiff(state.trueWind.dir, boat.heading));
+                let deg = absTWA * (180 / Math.PI);
+                let basePower;
+
+                if (deg >= 150) { // 150 - 180 (Close Hauled to Irons)
+                    let t = (deg - 150) / 30;
+                    basePower = 0.75 - t * 0.45; // 0.75 down to 0.30
+                } else if (deg >= 120) { // 120 - 150 (Close Reach to Close Hauled)
+                    let t = (deg - 120) / 30;
+                    basePower = 0.85 - t * 0.10; // 0.85 down to 0.75
+                } else if (deg >= 90) { // 90 - 120 (Beam Reach to Close Reach)
+                    let t = (deg - 90) / 30;
+                    basePower = 1.00 - t * 0.15; // 1.00 down to 0.85
+                } else if (deg >= 60) { // 60 - 90 (Broad Reach to Beam Reach)
+                    let t = (deg - 60) / 30;
+                    basePower = 0.95 + t * 0.05; // 0.95 up to 1.00
+                } else if (deg >= 30) { // 30 - 60
+                    let t = (deg - 30) / 30;
+                    basePower = 0.90 + t * 0.05; // 0.90 up to 0.95
+                } else { // 0 - 30 (Dead Downwind to Broad Reach)
+                    let t = deg / 30;
+                    basePower = 0.80 + t * 0.10; // 0.80 up to 0.90
+                }
+
+                // Lee Helm: sail is boomed out wide, pushing the stern.
+                // Reversing the sign makes it properly round UP into the wind (Weather Helm effect)
+                let leeHelmStrength = Math.max(0, 1.0 - (deg / 90.0));
+                let torque = -Math.sign(relWind) * leeHelmStrength * 0.25 * dt;
+                boat.heading += torque;
+
+                // Explicitly NOT using an Apparent Wind multiplier here!
+                // Apparent wind natively causes compounding positive-feedback loops upwind.
+                // We let True Wind strictly govern drive, forcing the boat to perfectly
+                // mirror the TWA performance polar percentages at terminal velocity.
+                let trueWindFactor = state.trueWind.spd / 200.0;
+
+                driveForce = boat.baseDrive * trueWindFactor * eff * basePower;
+            }
+
+            // In-irons: backward push + rotation, but ONLY when moving slowly.
+            // If tacking fast, momentum carries through — no back-push.
+            if (inNoGo) {
+                let absFwdSpeed = Math.abs(fwdSpeed);
+                // Backward push only below threshold speed
+                if (absFwdSpeed < 40) {
+                    let speedWeight = Math.max(0, 1.0 - absFwdSpeed / 40.0);
+                    let trueWindFactor = state.trueWind.spd / 200.0;
+                    // Force up 3x (from 0.15 to 0.45) to overcome the new higher dragFwd.
+                    let backForce = boat.baseDrive * 0.45 * speedWeight * trueWindFactor;
+                    boat.vx -= (backForce / boat.mass) * Math.cos(boat.heading) * dt;
+                    boat.vy -= (backForce / boat.mass) * Math.sin(boat.heading) * dt;
+                }
+
+                // Wind catches one side of rig, slowly pushes bow OFF the wind (falling off)
+                // relWind >= 0 (wind from port) -> starboard turn (+1.0) to fall off
+                let spinDir = (relWind >= 0) ? 1.0 : -1.0;
+                let autoSpin = spinDir * boat.turnRate * 0.4 * dt;
+
+                // If drifting backwards and user is actively steering, let the rudder win over the wind's auto-spin
+                if (fwdSpeed < -2 && boat.rudder !== 0) {
+                    autoSpin *= 0.1;
+                }
+
+                boat.heading += autoSpin;
+            }
+
+            // Turning: speed-dependent, sign of fwdSpeed reverses rudder when going backward
+            let turnEffectiveness = Math.min(1.0, Math.abs(fwdSpeed) / 60.0) * Math.sign(fwdSpeed);
+            if (Math.abs(fwdSpeed) < 2) turnEffectiveness *= 0.1; // very sluggish near zero
+
+            // Calculate base rudder turning
+            let rudderTurn = boat.rudder * boat.turnRate * turnEffectiveness * dt;
+
+            // Over-trim Weather Helm
+            // If the sail is sheeted in too hard (trim < bestTrim), it creates weather helm.
+            // Strong enough to overpower the rudder on a broad reach.
+            let overTrimWeatherHelm = 0;
+            if (!inNoGo && boat.trim < bestTrim) {
+                let overTrimAmount = (bestTrim - boat.trim) / 100.0; // 0.0 to 1.0
+                let speedFactor = Math.min(1.0, Math.abs(fwdSpeed) / 40.0);
+
+                // relWind > 0 (wind on port). To turn windward (port), we need a negative rotation.
+                // We use sign directly here since it applies the negative direction properly.
+                // We scale it down as we go upwind so it doesn't flutter at the no-go threshold,
+                // but keep it full strength (3.5 * dt) on a broad reach to overpower the rudder.
+                let upwindFade = (absRelWind > Math.PI / 2) ? Math.max(0.15, 1.0 - (absRelWind - Math.PI / 2) / (Math.PI / 2)) : 1.0;
+                overTrimWeatherHelm = -Math.sign(relWind) * overTrimAmount * speedFactor * upwindFade * 3.5 * dt;
+            }
+
+            boat.heading += rudderTurn + overTrimWeatherHelm;
+
+            // Acceleration from drive
+            let ax = (driveForce / boat.mass) * Math.cos(boat.heading);
+            let ay = (driveForce / boat.mass) * Math.sin(boat.heading);
+
+            boat.vx += ax * dt;
+            boat.vy += ay * dt;
+
+            // Hydrodynamic Drag (different for forward vs lateral)
+            let fwdX = Math.cos(boat.heading);
+            let fwdY = Math.sin(boat.heading);
+            let latX = Math.cos(boat.heading + Math.PI / 2);
+            let latY = Math.sin(boat.heading + Math.PI / 2);
+
+            // Project velocity
+            let vFwd = boat.vx * fwdX + boat.vy * fwdY;
+            let vLat = boat.vx * latX + boat.vy * latY;
+
+            // Apply drag (forward: linear; lateral: speed-scaled keel effect)
+            vFwd *= Math.max(0, 1.0 - boat.dragFwd * dt);
+
+            // Hull speed limit (aggressive exponential drag on excess speed)
+            if (Math.abs(vFwd) > boat.hullSpeed) {
+                let excess = Math.abs(vFwd) - boat.hullSpeed;
+                // Braking force scales heavily with how far over hull speed we are
+                let brakingForce = excess * 4.0 * dt;
+                vFwd -= Math.sign(vFwd) * Math.min(excess, brakingForce);
+            }
+
+            // Keel: at full speed locks lateral slip (ice-skate model); stalls at low speed
+            let speedFactor = Math.min(1.0, Math.abs(vFwd) / 60.0);
+            let effectiveDragLat = boat.dragLat * (0.5 + 5.5 * speedFactor);
+            vLat *= Math.max(0, 1.0 - effectiveDragLat * dt);
+
+            // Reconstruct velocity
+            boat.vx = vFwd * fwdX + vLat * latX;
+            boat.vy = vFwd * fwdY + vLat * latY;
+
+            // Position update
+            boat.x += boat.vx * dt;
+            boat.y += boat.vy * dt;
+
+            // --- World Boundary ---
+            const BOUNDARY_R = CONFIG.mapRadius * 1.7;
+            let distFromCenter = Math.hypot(boat.x, boat.y);
+            if (distFromCenter > BOUNDARY_R) {
+                let overBy = distFromCenter - BOUNDARY_R;
+                let nx = boat.x / distFromCenter;
+                let ny = boat.y / distFromCenter;
+                // Proportional push back toward center
+                boat.vx -= nx * overBy * 1.2 * dt;
+                boat.vy -= ny * overBy * 1.2 * dt;
+                // Hard clamp so you can't escape entirely
+                if (distFromCenter > BOUNDARY_R * 1.15) {
+                    boat.x = nx * BOUNDARY_R * 1.15;
+                    boat.y = ny * BOUNDARY_R * 1.15;
+                    // Dampen velocity toward boundary
+                    let vDot = boat.vx * nx + boat.vy * ny;
+                    if (vDot > 0) { boat.vx -= nx * vDot; boat.vy -= ny * vDot; }
+                }
+            }
+
+            // Island Collision
+            for (let iso of islands) {
+                let dx = boat.x - iso.x;
+                let dy = boat.y - iso.y;
+                let dist = Math.hypot(dx, dy);
+                let minDist = boat.length / 2 + iso.r;
+                if (dist < minDist) {
+                    // Push out
+                    let overlap = minDist - dist;
+                    boat.x += (dx / dist) * overlap;
+                    boat.y += (dy / dist) * overlap;
+                    // Bump
+                    boat.vx *= 0.5;
+                    boat.vy *= 0.5;
+                }
+            }
+
+            // Dolphin Rescue (stuck check)
+            let speedSq = boat.vx * boat.vx + boat.vy * boat.vy;
+            if (speedSq < 25) { // moving very slowly
+                state.stuckTimer += dt;
+                if (state.stuckTimer > 3.0) {
+                    state.stuckTimer = 0;
+
+                    // Find push direction away from nearest obstruction
+                    let pushDir = boat.heading;
+                    let minDist = Infinity;
+
+                    // Check World Boundary
+                    let distToBoundary = BOUNDARY_R - distFromCenter;
+                    if (distToBoundary < 100 && distToBoundary < minDist) {
+                        minDist = distToBoundary;
+                        // Push towards the center of the world
+                        pushDir = Math.atan2(-boat.y, -boat.x);
+                    }
+
+                    // Check Islands
+                    for (let iso of islands) {
+                        let dx = boat.x - iso.x;
+                        let dy = boat.y - iso.y;
+                        let distToIsland = Math.hypot(dx, dy) - (iso.r + boat.length / 2);
+                        if (distToIsland < Math.min(100, minDist)) {
+                            minDist = distToIsland;
+                            // Push away from the center of the island
+                            pushDir = Math.atan2(dy, dx);
+                        }
+                    }
+
+                    // Push boat to unstick
+                    boat.vx += Math.cos(pushDir) * 150 + (Math.random() - 0.5) * 30;
+                    boat.vy += Math.sin(pushDir) * 150 + (Math.random() - 0.5) * 30;
+
+                    // Also turn the boat in that direction so it can sail away
+                    boat.heading = pushDir;
+
+                    // Spawn a rescuing dolphin
+                    dolphins.push({
+                        x: boat.x,
+                        y: boat.y,
+                        dir: pushDir + (Math.random() - 0.5) * 0.5,
+                        life: 2.0
+                    });
+                }
+            } else {
+                state.stuckTimer = 0;
+            }
+
+            // Update dolphins
+            for (let i = dolphins.length - 1; i >= 0; i--) {
+                let d = dolphins[i];
+                d.life -= dt;
+                d.x += Math.cos(d.dir) * 220 * dt;
+                d.y += Math.sin(d.dir) * 220 * dt;
+                if (d.life <= 0) dolphins.splice(i, 1);
+            }
+
+            // Update Speedometer
+            let currentFwdSpeed = Math.abs(boat.vx * Math.cos(boat.heading) + boat.vy * Math.sin(boat.heading));
+            let maxExpectedSpeed = boat.hullSpeed || 270;
+            let speedRatio = Math.min(1.0, currentFwdSpeed / maxExpectedSpeed);
+            let activeBars = Math.round(speedRatio * 5);
+            speedBars.forEach((bar, i) => {
+                bar.className = i < activeBars ? 'speed-bar active' : 'speed-bar';
+            });
+
+            // 270 px/sec roughly scales to a fast monohull max of ~6.75 knots
+            let knots = currentFwdSpeed * 0.025;
+            speedText.innerText = knots.toFixed(1) + " kt";
+        }
+
+        // --- DRAWING ---
+        function drawBoat(ctx) {
+            ctx.save();
+            ctx.translate(boat.x, boat.y);
+            ctx.rotate(boat.heading);
+
+            // Hull shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.beginPath();
+            ctx.ellipse(5, 5, boat.length / 2, boat.width / 2 + 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Hull
+            ctx.fillStyle = boat.color;
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(boat.length / 2, 0); // Bow
+            ctx.quadraticCurveTo(0, boat.width / 2, -boat.length / 2, boat.width / 2 - 2); // Stern right
+            ctx.lineTo(-boat.length / 2, -boat.width / 2 + 2); // Stern left
+            ctx.quadraticCurveTo(0, -boat.width / 2, boat.length / 2, 0); // Back to bow
+            ctx.fill();
+            ctx.stroke();
+
+            // Mast
+            ctx.fillStyle = '#7f8c8d';
+            let mastX = boat.length * 0.15; // Slightly forward
+            ctx.beginPath();
+            ctx.arc(mastX, 0, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Calculate apparent wind relative to boat for sail visuals
+            let twVx = state.trueWind.spd * Math.cos(state.trueWind.dir);
+            let twVy = state.trueWind.spd * Math.sin(state.trueWind.dir);
+            let awVx = twVx - boat.vx;
+            let awVy = twVy - boat.vy;
+            let awDir = Math.atan2(awVy, awVx);
+            let relWind = angleDiff(awDir, boat.heading);
+
+            ctx.save();
+            // Sail rotates around mast
+            ctx.translate(mastX, 0);
+
+            // Driven by physics engine calculation
+            let sailAngle = boat.sailAngle || 0;
+
+            // Luffing: in no-go zone OR sail over-trimmed (sheeted past the wind)
+            let luffing = false;
+            let absRelWindDraw = Math.abs(relWind);
+            let bestTrimDraw = (1.0 - absRelWindDraw / Math.PI) * 100;
+            if (absRelWindDraw > (Math.PI * 11 / 12) || boat.trim > bestTrimDraw + 30) {
+                luffing = true;
+            }
+
+            if (luffing) {
+                sailAngle += (Math.random() - 0.5) * 0.15; // Shake
+            }
+
+            ctx.rotate(sailAngle);
+
+            // Boom line
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-boat.length * 0.8, 0);
+            ctx.stroke();
+
+            // Canvas Sail Shape
+            // After ctx.rotate(sailAngle), local-X is along the boom, local-Y is perpendicular.
+            // The boom is already on the leeward side (sailAngle is negative when wind from starboard).
+            // billowSide: -1 when wind from starboard, +1 when wind from port.
+            // In rotated frame, billowSide * boat.width pushes the curve further leeward. ✓
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.beginPath();
+            ctx.moveTo(0, 0); // Mast attach
+            if (luffing) {
+                // Flat/Flapping
+                ctx.lineTo(-boat.length * 0.8, 0);
+                ctx.lineTo(0, -2);
+            } else {
+                let bSide = boat.billowSide || 1;
+                // Control point: midway along boom, pushed out by bSide in local-Y
+                ctx.quadraticCurveTo(-boat.length * 0.45, bSide * boat.width * 1.2, -boat.length * 0.8, 0);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.restore(); // Mast
+            ctx.restore(); // Boat
+        }
+
+        function drawGame() {
+            // Camera tracking
+            ctx.fillStyle = "#4fc3f7"; // --sea
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.save();
+            ctx.translate(width / 2 - boat.x, height / 2 - boat.y);
+
+            // Draw Boundary Ring (edge of the known world)
+            const BOUNDARY_R = CONFIG.mapRadius * 1.7;
+            ctx.save();
+            ctx.setLineDash([20, 12]);
+            ctx.strokeStyle = 'rgba(180, 60, 60, 0.35)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(0, 0, BOUNDARY_R, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            // Soft red fog at the edges
+            let edgeGrad = ctx.createRadialGradient(0, 0, BOUNDARY_R * 0.75, 0, 0, BOUNDARY_R * 1.1);
+            edgeGrad.addColorStop(0, 'rgba(180,60,60,0)');
+            edgeGrad.addColorStop(1, 'rgba(180,60,60,0.18)');
+            ctx.fillStyle = edgeGrad;
+            ctx.beginPath();
+            ctx.arc(0, 0, BOUNDARY_R * 1.1, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Draw Islands
+            for (let iso of islands) {
+                // Beach
+                ctx.fillStyle = "#fff59d"; // --beach
+                ctx.beginPath();
+                ctx.arc(iso.x, iso.y, iso.r + 8, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Grass
+                ctx.fillStyle = "#aed581"; // --land
+                ctx.beginPath();
+                ctx.arc(iso.x, iso.y, iso.r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Wake trailing
+            let currentSpeed = Math.abs(boat.vx) + Math.abs(boat.vy);
+            if (currentSpeed > 10) {
+                let wakeSize = Math.max(2, Math.min(14, currentSpeed / 12));
+                ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+                ctx.beginPath();
+                let sternX = boat.x - Math.cos(boat.heading) * boat.length / 2;
+                let sternY = boat.y - Math.sin(boat.heading) * boat.length / 2;
+                ctx.arc(sternX, sternY, wakeSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw Dolphins
+            for (let d of dolphins) {
+                ctx.save();
+                ctx.translate(d.x, d.y);
+                ctx.rotate(d.dir);
+                // Leap effect: 0 at start/end, 1 at peak of jump (life goes 2.0 -> 0.0)
+                let leap = 1.0 - Math.abs(d.life - 1.0);
+                let scale = 1.0 + leap * 0.4;
+
+                ctx.scale(scale, scale);
+                ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                ctx.shadowBlur = 15 * leap;
+                ctx.shadowOffsetY = 15 * leap;
+
+                ctx.fillStyle = '#8395a7'; // dolphin color
+                // Body
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 16, 6, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Dorsal fin
+                ctx.beginPath();
+                ctx.moveTo(3, -5); ctx.lineTo(-5, -5); ctx.lineTo(0, -14);
+                ctx.fill();
+                // Tail
+                ctx.beginPath();
+                ctx.moveTo(-13, 0); ctx.lineTo(-21, -8); ctx.lineTo(-21, 8);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            drawBoat(ctx);
+
+            ctx.restore();
+        }
+
+        // --- MINIMAP ---
+        function drawMinimap() {
+            // Internal canvas is 540x540 for high dpi
+            mCtx.clearRect(0, 0, 540, 540);
+            mCtx.save();
+            mCtx.translate(270, 270); // Center
+
+            const BOUNDARY_R = CONFIG.mapRadius * 1.7;
+            // The edge of the minimap container *is* the world boundary
+            const scale = 270 / BOUNDARY_R;
+            mCtx.scale(scale, scale);
+
+            // Water tint
+            mCtx.beginPath();
+            mCtx.arc(0, 0, BOUNDARY_R, 0, Math.PI * 2);
+            mCtx.fillStyle = 'rgba(79, 195, 247, 0.15)'; // Very faint blue over the white bg
+            mCtx.fill();
+
+            // Islands
+            for (let iso of islands) {
+                mCtx.fillStyle = '#aed581';
+                mCtx.beginPath();
+                mCtx.arc(iso.x, iso.y, iso.r, 0, Math.PI * 2);
+                mCtx.fill();
+
+                mCtx.lineWidth = 2 / scale;
+                mCtx.strokeStyle = '#8bc34a';
+                mCtx.stroke();
+            }
+
+            // Boat (GPS-style triangle)
+            mCtx.fillStyle = '#ff4757'; // High-vis red
+            mCtx.save();
+            mCtx.translate(boat.x, boat.y);
+            mCtx.rotate(boat.heading);
+            mCtx.beginPath();
+            mCtx.moveTo(24 / scale, 0); // Bow (front apex)
+            mCtx.lineTo(-15 / scale, 12 / scale); // Stern (port corner)
+            mCtx.lineTo(-15 / scale, -12 / scale); // Stern (starboard corner)
+            mCtx.closePath();
+            mCtx.fill();
+            mCtx.restore();
+
+            mCtx.restore();
+        }
+
+        // --- GAME LOOP ---
+        function gameLoop(time) {
+            if (!state.playing) return;
+
+            let dt = (time - state.lastTime) / 1000;
+            state.lastTime = time;
+
+            // Limit dt to prevent huge jumps if tab was inactive
+            if (dt > 0.1) dt = 0.1;
+
+            if (!state.tutorialOpen) {
+                updatePhysics(dt);
+            }
+            drawGame();
+            drawMinimap();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Background decorative draw for start screen
+        function idleDraw() {
+            if (!state.playing) {
+                ctx.fillStyle = "#4fc3f7"; // --sea
+                ctx.fillRect(0, 0, width, height);
+                // Draw some dummy waves
+                ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+                let t = performance.now() / 1000.0;
+                for (let i = 0; i < 20; i++) {
+                    let wx = (Math.sin(t + i) * 100 + i * 100) % width;
+                    let wy = (Math.cos(t * 0.8 + i) * 50 + i * 80) % height;
+                    if (wx < 0) wx += width; if (wy < 0) wy += height;
+                    ctx.beginPath();
+                    ctx.ellipse(wx, wy, 20, 5, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                requestAnimationFrame(idleDraw);
+            }
+        }
+        idleDraw();
+
+    </script>
+</body>
+
+</html>
