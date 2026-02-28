@@ -29,6 +29,7 @@
             background-color: var(--sea);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             touch-action: none;
+            overscroll-behavior: none;
             /* Prevent pulling to refresh on mobile */
             color: var(--text);
         }
@@ -365,7 +366,7 @@
         <div id="hud" class="hidden">
             <div id="wind-compass">
                 <div id="wind-arrow">
-                    <svg viewBox="0 0 24 24" width="28" height="28" fill="#3498db">
+                    <svg viewBox="0 0 24 24" width="48" height="48" fill="#3498db">
                         <path d="M12 22L8 14H11V2H13V14H16L12 22Z" />
                     </svg>
                 </div>
@@ -450,7 +451,8 @@
             },
             keys: {
                 left: false, right: false, up: false, down: false
-            }
+            },
+            cameraZoom: 1.0
         };
 
         let dolphins = [];
@@ -567,17 +569,52 @@
 
         // --- INPUT HANDLING ---
         window.addEventListener('keydown', (e) => {
-            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') state.keys.left = true;
-            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') state.keys.right = true;
-            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') state.keys.up = true;
-            if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') state.keys.down = true;
-        });
+            // Hijack Browser Zoom Shortcuts (CMD +/-/0) to trigger our Native Camera
+            if (e.metaKey || e.ctrlKey) {
+                if (e.key === '=' || e.key === '+') {
+                    e.preventDefault();
+                    if (state.playing) { state.cameraZoom *= 1.15; state.cameraZoom = Math.max(0.15, Math.min(3.0, state.cameraZoom)); }
+                } else if (e.key === '-') {
+                    e.preventDefault();
+                    if (state.playing) { state.cameraZoom /= 1.15; state.cameraZoom = Math.max(0.15, Math.min(3.0, state.cameraZoom)); }
+                } else if (e.key === '0') {
+                    e.preventDefault();
+                    if (state.playing) { state.cameraZoom = 1.0; }
+                }
+            } else {
+                if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') state.keys.left = true;
+                if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') state.keys.right = true;
+                if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') state.keys.up = true;
+                if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') state.keys.down = true;
+            }
+        }, { passive: false });
         window.addEventListener('keyup', (e) => {
             if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') state.keys.left = false;
             if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') state.keys.right = false;
             if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') state.keys.up = false;
             if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') state.keys.down = false;
         });
+
+        // Native Camera Zoom (Scroll / Trackpad)
+        window.addEventListener('wheel', (e) => {
+            if (state.playing) {
+                e.preventDefault(); // Stop ALL browser zooming instantly
+
+                // Exponential geometric scale fixes the "getting stuck when zooming out" math bug
+                if (e.deltaY > 0) {
+                    state.cameraZoom /= 1.05; // Zoom out
+                } else if (e.deltaY < 0) {
+                    state.cameraZoom *= 1.05; // Zoom in
+                }
+
+                state.cameraZoom = Math.max(0.15, Math.min(3.0, state.cameraZoom));
+            }
+        }, { passive: false });
+
+        // Safari Pinch-to-Zoom hard overrides
+        window.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+        window.addEventListener('gesturechange', function (e) { e.preventDefault(); });
+        window.addEventListener('gestureend', function (e) { e.preventDefault(); });
 
         trimSlider.addEventListener('input', (e) => {
             boat.trim = parseInt(e.target.value);
@@ -1048,7 +1085,12 @@
             ctx.fillRect(0, 0, width, height);
 
             ctx.save();
-            ctx.translate(width / 2 - boat.x, height / 2 - boat.y);
+            // Center camera on screen
+            ctx.translate(width / 2, height / 2);
+            // Apply physical zoom level
+            ctx.scale(state.cameraZoom, state.cameraZoom);
+            // Translate to boat position
+            ctx.translate(-boat.x, -boat.y);
 
             // Draw Boundary Ring (edge of the known world)
             const BOUNDARY_R = CONFIG.mapRadius * 1.7;
