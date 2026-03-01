@@ -154,6 +154,20 @@
             z-index: 10;
         }
 
+        #debug-net-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #00ff00;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 100;
+        }
+
         /* Wind Indicator */
         #wind-compass {
             position: absolute;
@@ -364,11 +378,10 @@
             bottom: 110px;
             left: 20px;
             width: 270px;
+            width: 270px;
             height: 270px;
             background: rgba(255, 255, 255, 0.85);
             /* Clean, frosted paper look */
-            border: 4px solid #bdc3c7;
-            /* Matches compass */
             border-radius: 50%;
             overflow: hidden;
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
@@ -695,10 +708,12 @@
         <div id="start-screen" class="overlay">
             <div class="title">Broadside</div>
             <div class="archetype-container">
-                <button class="btn-ship" id="btn-start">
-                    START SAILING
-                    <span>Click to weigh anchor</span>
-                </button>
+                <input type="text" id="player-name" placeholder="Enter Player Name" maxlength="16"
+                    style="margin-bottom: 20px; font-size: 1.2rem; padding: 10px; text-align: center; border-radius: 8px; border: 2px solid #2c3e50; width: 100%; max-width: 300px; box-sizing: border-box; background: rgba(255,255,255,0.9);" />
+                <div style="display: flex; gap: 10px; width: 100%; justify-content: center;">
+                    <button class="btn-ship" id="btn-free">Free Sail<span>No scoring</span></button>
+                    <button class="btn-ship" id="btn-race">Race Mode<span>Timed course</span></button>
+                </div>
             </div>
         </div>
 
@@ -711,7 +726,9 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import PartySocket from "https://esm.sh/partysocket";
+
         // --- CONSTANTS ---
         const CONFIG = {
             mapRadius: 1500, // Circular safe zone roughly
@@ -725,34 +742,36 @@
             stuckTimer: 0,
             lastTime: 0,
             trueWind: {
-                spd: 200, // "Wind force" pixels per sec sort of scaling
-                dir: 0    // Angle (will be random)
+                spd: 200,
+                dir: 0
             },
             keys: {
                 left: false, right: false, up: false, down: false
             },
-            cameraZoom: 1.0
+            cameraZoom: 1.0,
+            serverTick: 0
         };
 
         let dolphins = [];
-        let boat = {
-            x: 0, y: 0,
-            vx: 0, vy: 0,
-            heading: -Math.PI / 2, // North 
-            rudder: 0,  // -1 to 1
-            trim: 50,   // 0 to 100
 
-            // Physics Profile (set by archetype)
-            mass: 0, dragFwd: 0, dragLat: 0, turnRate: 0, baseDrive: 0, hullSpeed: 0,
-            width: 0, length: 0, color: ''
-        };
-
+        // --- MULTIPLAYER STATE ---
+        let socket = null;
+        let myBoatId = null;
+        let netBoats = new Map(); // string -> interpolated visual BoatState
+        let playersById = {}; // string -> { name, boatId, joinedAt }
         let islands = [];
+        let snapshots = []; // Buffer for interpolation
+        let currentTrim = 500; // 0 to 1000
+        let currentRudder = 0; // -127 to 127
+        let inputInterval = null;
 
         // --- DOM Elements ---
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const startScreen = document.getElementById('start-screen');
+        const playerNameInput = document.getElementById('player-name');
+        const btnFree = document.getElementById('btn-free');
+        const btnRace = document.getElementById('btn-race');
         const hud = document.getElementById('hud');
         const tutorial = document.getElementById('tutorial');
         const windArrow = document.getElementById('wind-arrow');
@@ -769,6 +788,13 @@
         const minimapCanvas = document.getElementById('minimap-canvas');
         const mCtx = minimapCanvas.getContext('2d');
 
+        // --- DEBUG NET ---
+        const debugPing = document.getElementById('debug-ping');
+        const debugTicks = document.getElementById('debug-ticks');
+        const debugBuffer = document.getElementById('debug-buffer');
+        let lastSnapTime = 0;
+        let avgSnapGap = 100;
+
         let width, height;
 
         // --- INITIALIZATION ---
@@ -784,58 +810,125 @@
         window.addEventListener('resize', resize);
         resize();
 
-        function initLevel() {
-            // Random true wind direction
-            state.trueWind.dir = Math.random() * Math.PI * 2;
-            // Arrow ⬇ starts pointing south. Wind dir=0 means blowing east; rotate so arrow points east = direction wind travels.
-            windArrow.style.transform = `rotate(${state.trueWind.dir - Math.PI / 2}rad)`;
+        function initMultiplayer(mode, playerName) {
+            // Assume server is running at port 1999 for local dev (localhost or LAN IPs)
+            const isLocal = window.location.hostname === "localhost" ||
+                window.location.hostname === "127.0.0.1" ||
+                window.location.hostname.startsWith("192.168.") ||
+                window.location.hostname.startsWith("10.");
 
-            // Set starting heading 90 degrees to the wind (beam reach)
-            boat.heading = state.trueWind.dir + Math.PI / 2;
-            boat.vx = 0;
-            boat.vy = 0;
-            boat.trim = 50;
+            const host = isLocal ? `${window.location.hostname}:1999` : 'broadside-server.mccambridge.partykit.dev';
 
-            // Generate map of islands
-            islands = [];
-            for (let i = 0; i < CONFIG.islandCount; i++) {
-                // Ensure no island exactly at 0,0 where we spawn
-                let x, y, r, d;
-                do {
-                    x = (Math.random() - 0.5) * CONFIG.mapRadius * 2;
-                    y = (Math.random() - 0.5) * CONFIG.mapRadius * 2;
-                    r = 40 + Math.random() * 80;
-                    d = Math.hypot(x, y);
-                } while (d < 300); // clear radius around spawn
+            const roomName = `broadside-${mode}-v0`;
 
-                islands.push({ x, y, r });
-            }
+            socket = new PartySocket({
+                host: host,
+                room: roomName
+            });
 
-            trimSlider.value = boat.trim;
+            socket.addEventListener("open", () => {
+                socket.send(JSON.stringify({
+                    type: "hello",
+                    name: playerName,
+                    archetype: "small"
+                }));
+            });
+
+            socket.addEventListener("message", (e) => {
+                const msg = JSON.parse(e.data);
+
+                if (msg.type === "welcome" || msg.type === "session_reset") {
+                    console.log("[Network] Joined session config:", msg);
+                    if (msg.type === "welcome") myBoatId = msg.playerId;
+
+                    state.serverTick = msg.serverTick;
+                    if (msg.islands) islands = msg.islands;
+
+                    if (msg.windDir !== undefined) {
+                        state.trueWind.dir = msg.windDir;
+                        state.trueWind.spd = msg.windSpeed;
+                    }
+                    windArrow.style.transform = `rotate(${state.trueWind.dir - Math.PI / 2}rad)`;
+
+                    // Clear buffer on reset
+                    if (msg.type === "session_reset") {
+                        snapshots = [];
+                        netBoats.clear();
+                    }
+                }
+                else if (msg.type === "players_full") {
+                    playersById = msg.playersById || {};
+                }
+                else if (msg.type === "players_diff") {
+                    if (msg.join) Object.assign(playersById, msg.join);
+                    if (msg.update) Object.assign(playersById, msg.update);
+                    if (msg.leave) msg.leave.forEach(id => delete playersById[id]);
+                }
+                else if (msg.type === "snapshot") {
+                    state.serverTick = msg.data.serverTick;
+                    snapshots.push({
+                        time: performance.now(),
+                        data: msg.data
+                    });
+
+                    // Keep buffer small (approx ~500ms at 10Hz)
+                    if (snapshots.length > 5) snapshots.shift();
+
+                    // Debug UI updates
+                    let now = performance.now();
+                    if (lastSnapTime !== 0) {
+                        avgSnapGap = avgSnapGap * 0.9 + (now - lastSnapTime) * 0.1;
+                    }
+                    lastSnapTime = now;
+
+                    if (debugPing) {
+                        debugPing.innerText = Math.round(avgSnapGap);
+                        debugTicks.innerText = msg.data.serverTick;
+                        debugBuffer.innerText = snapshots.length;
+                    }
+                }
+            });
+
+            // Fixed 20Hz Input Pump
+            if (inputInterval) clearInterval(inputInterval);
+            inputInterval = setInterval(() => {
+                if (!state.playing || !myBoatId || !socket) return;
+
+                // Derive integer inputs from keys
+                currentRudder = 0;
+                if (state.keys.left) currentRudder = -127;
+                else if (state.keys.right) currentRudder = 127;
+
+                // Keyboard Trim Fallback
+                if (state.keys.up) { currentTrim = Math.min(1000, currentTrim + 50); trimSlider.value = Math.round(currentTrim / 10); }
+                if (state.keys.down) { currentTrim = Math.max(0, currentTrim - 50); trimSlider.value = Math.round(currentTrim / 10); }
+
+                socket.send(JSON.stringify({
+                    type: "input",
+                    seq: Math.floor(performance.now() / 50),
+                    rudder: currentRudder,
+                    trim: currentTrim
+                }));
+            }, 50);
         }
 
-        function startGame(type) {
+        function startGame(mode) {
+            gestureGranted = true;
+            requestFS();
+
+            const playerName = playerNameInput.value.trim();
             startScreen.classList.add('hidden');
             hud.classList.remove('hidden');
 
-            // Small boat handling specs
-            boat.mass = 1.0;
-            boat.dragFwd = 1.3; // Calibrated so baseDrive (350) maxes out around 270 naturally
-            boat.dragLat = 3.0;
-            boat.turnRate = 2.2;
-            boat.baseDrive = 350;
-            boat.hullSpeed = 270; // Max theoretical speed before aggressive exponential drag
+            initMultiplayer(mode, playerName);
 
-            // Medium boat visual specs
-            boat.color = '#2ecc71'; // Green
-            boat.width = 22;
-            boat.length = 50;
-
-            initLevel();
             state.playing = true;
             state.lastTime = performance.now();
             requestAnimationFrame(gameLoop);
         }
+
+        btnFree.addEventListener('click', () => startGame('free-sail'));
+        btnRace.addEventListener('click', () => startGame('racing'));
 
         // --- Fullscreen & iOS Standalone ---
         let gestureGranted = false;
@@ -867,12 +960,6 @@
         if (isIOS() && !isStandalone()) {
             document.getElementById('ios-add-tip').style.display = 'block';
         }
-
-        document.getElementById('btn-start').addEventListener('click', () => {
-            gestureGranted = true;
-            requestFS();
-            startGame();
-        });
 
         document.getElementById('btn-close-tut').addEventListener('click', () => {
             tutorial.classList.add('hidden');
@@ -960,7 +1047,7 @@
         window.addEventListener('gestureend', (e) => e.preventDefault());
 
         trimSlider.addEventListener('input', (e) => {
-            boat.trim = parseInt(e.target.value);
+            currentTrim = parseInt(e.target.value) * 10;
         });
 
         // Canvas Touch Controls
@@ -1029,370 +1116,8 @@
             return d;
         }
 
-        // --- PHYSICS CALCULATION ---
-        function updatePhysics(dt) {
-            // Steering input mappings
-            if (state.keys.left) boat.rudder = -1;
-            else if (state.keys.right) boat.rudder = 1;
-            else boat.rudder = 0;
-
-            // Optional keyboard trim
-            if (state.keys.up) { boat.trim = Math.min(100, boat.trim + 50 * dt); trimSlider.value = boat.trim; }
-            if (state.keys.down) { boat.trim = Math.max(0, boat.trim - 50 * dt); trimSlider.value = boat.trim; }
-
-            // Wind Vectors -> apparent wind
-            let twVx = state.trueWind.spd * Math.cos(state.trueWind.dir);
-            let twVy = state.trueWind.spd * Math.sin(state.trueWind.dir);
-
-            let awVx = twVx - boat.vx;
-            let awVy = twVy - boat.vy;
-            let awMag = Math.hypot(awVx, awVy);
-            let awDir = Math.atan2(awVy, awVx);
-
-            let relWind = angleDiff(awDir, boat.heading); // Angle between heading and apparent wind [-PI, PI]
-            let absRelWind = Math.abs(relWind);
-            // absRelWind ~0 = into wind, ~PI = dead downwind
-
-            // Forward speed (negative = moving backward)
-            let fwdSpeed = boat.vx * Math.cos(boat.heading) + boat.vy * Math.sin(boat.heading);
-
-            // --- No-go zone with hysteresis ---
-            // Enter irons at 165° (11/12 * PI), must reach 150° (5/6 * PI) to exit.
-            // This prevents the boundary oscillation that lets driveForce fire and cancel backForce.
-            if (boat.inIrons === undefined) boat.inIrons = false;
-            if (!boat.inIrons && absRelWind > (Math.PI * 11 / 12)) {
-                boat.inIrons = true;  // Enter irons
-            } else if (boat.inIrons && absRelWind < (Math.PI * 5 / 6)) {
-                boat.inIrons = false; // Exit irons (must fall further off the wind)
-            }
-            let inNoGo = boat.inIrons;
-
-            // --- Sail/Boom Angle ---
-            // trim=100 → sheet fully out → boom can swing up to 90° (PI/2)
-            // trim=0   → sheet fully in → boom stays near centerline
-            let maxSwing = (boat.trim / 100) * (Math.PI / 2);
-
-            // How far does wind want to push the boom out?
-            // absRelWind ~ PI (upwind) → naturalOut ~ 0 (sail luffs amidships)
-            // absRelWind ~ 0 (downwind) → naturalOut ~ PI/2 (boom out wide)
-            let naturalOut = Math.PI / 2 - (absRelWind - Math.PI / 2);
-            naturalOut = Math.max(0, Math.min(naturalOut, Math.PI / 2));
-
-            // Sheet limits how far out boom can go
-            let boomOut = Math.min(naturalOut, maxSwing);
-
-            // Side: relWind > 0 means apparent wind comes from port (travels to starboard)
-            // → boom goes to STARBOARD (negative angle in canvas since it's drawn on -X axis)
-            // relWind < 0 means wind from starboard → boom to PORT (positive angle)
-            let targetSailAngle = (relWind >= 0) ? -boomOut : boomOut;
-
-            if (boat.sailAngle === undefined) boat.sailAngle = targetSailAngle;
-            let sailDiff = angleDiff(targetSailAngle, boat.sailAngle);
-            // Limit boom swing speed so a full 180° gybe takes about ~0.75 - 1 seconds
-            let maxSwingSpeed = 3.6 * dt;
-            let sailMove = sailDiff * 8.0 * dt;
-            boat.sailAngle += Math.max(-maxSwingSpeed, Math.min(maxSwingSpeed, sailMove));
-
-            // Billow: always curves away from wind, further leeward.
-            // relWind >= 0 (wind from port) -> boom stbd, local +Y is stbd -> bSide = 1
-            // relWind < 0 (wind from stbd) -> boom port, local -Y is port -> bSide = -1
-            boat.billowSide = (relWind >= 0) ? 1 : -1;
-
-            // --- Best trim for UI feedback ---
-            // absRelWind ~ PI = upwind → sheet fully IN (trim=0)
-            // absRelWind ~ 0  = downwind → sheet fully OUT (trim=100)
-            let bestTrim = (1.0 - absRelWind / Math.PI) * 100;
-            let trimError = Math.abs(boat.trim - bestTrim);
-
-            // True Wind Angle for Polar and Planing Checks
-            let absTWA = Math.abs(angleDiff(state.trueWind.dir, boat.heading));
-            let deg = absTWA * (180 / Math.PI);
-
-            // Planing Mechanic (Beam to Broad Reach: deg is between 20 and 90, which means 90 to 160 off the wind)
-            // Hysteresis: as you accelerate, Apparent Wind shifts forward, changing your "Best" trim rapidly.
-            // We give a generous +-25 buffer to stay in Planing so the speed shift doesn't instantly cancel your buff.
-            let planingTolerance = boat.isPlaning ? 25 : 8;
-            if (trimError <= planingTolerance && deg >= 20 && deg <= 90) {
-                if (typeof boat.planingTimer === 'undefined') boat.planingTimer = 0;
-                boat.planingTimer += dt;
-            } else {
-                boat.planingTimer = 0;
-            }
-            boat.isPlaning = boat.planingTimer >= 5.0;
-
-            // UI Feedback
-            let feedback = "Good";
-            trimFeedback.className = "good";
-            if (inNoGo) {
-                if (fwdSpeed < 15) {
-                    feedback = "In Irons!";
-                    trimFeedback.className = "error";
-                } else {
-                    feedback = "Too close!";
-                    trimFeedback.className = "warning";
-                }
-            } else {
-                if (boat.isPlaning) {
-                    feedback = "On a plane!";
-                    trimFeedback.className = "planing";
-                } else if (trimError > 40) {
-                    feedback = boat.trim < bestTrim ? "Let out!" : "Sheet in!";
-                    trimFeedback.className = "error";
-                } else if (trimError > 20) {
-                    feedback = boat.trim < bestTrim ? "Let out" : "Sheet in";
-                    trimFeedback.className = "warning";
-                } else if (trimError <= 8) {
-                    feedback = "Best";
-                    trimFeedback.className = "best";
-                }
-            }
-            trimFeedback.innerText = feedback;
-
-            // --- Drive Force ---
-            let driveForce = 0;
-            if (!inNoGo) {
-                // Trim efficiency: 1.0 at perfect trim, power falls off noticeably with error
-                let eff = Math.max(0.05, 1.0 - (trimError / 60.0));
-
-                // Polar: mapped explicitly using True Wind Angle (TWA) to perfectly hit our targets
-                // Convention: 0 = dead downwind, 180 = dead upwind
-                let basePower;
-
-                if (deg >= 150) { // 150 - 180 (Close Hauled to Irons)
-                    let t = (deg - 150) / 30;
-                    basePower = 0.75 - t * 0.45; // 0.75 down to 0.30
-                } else if (deg >= 120) { // 120 - 150 (Close Reach to Close Hauled)
-                    let t = (deg - 120) / 30;
-                    basePower = 0.85 - t * 0.10; // 0.85 down to 0.75
-                } else if (deg >= 90) { // 90 - 120 (Beam Reach to Close Reach)
-                    let t = (deg - 90) / 30;
-                    basePower = 1.00 - t * 0.15; // 1.00 down to 0.85
-                } else if (deg >= 60) { // 60 - 90 (Broad Reach to Beam Reach)
-                    let t = (deg - 60) / 30;
-                    basePower = 0.95 + t * 0.05; // 0.95 up to 1.00
-                } else if (deg >= 30) { // 30 - 60
-                    let t = (deg - 30) / 30;
-                    basePower = 0.90 + t * 0.05; // 0.90 up to 0.95
-                } else { // 0 - 30 (Dead Downwind to Broad Reach)
-                    let t = deg / 30;
-                    basePower = 0.80 + t * 0.10; // 0.80 up to 0.90
-                }
-
-                // Lee Helm: sail is boomed out wide, pushing the stern.
-                // Reversing the sign makes it properly round UP into the wind (Weather Helm effect)
-                let leeHelmStrength = Math.max(0, 1.0 - (deg / 90.0));
-                let torque = -Math.sign(relWind) * leeHelmStrength * 0.25 * dt;
-                boat.heading += torque;
-
-                // Explicitly NOT using an Apparent Wind multiplier here!
-                // Apparent wind natively causes compounding positive-feedback loops upwind.
-                // We let True Wind strictly govern drive, forcing the boat to perfectly
-                // mirror the TWA performance polar percentages at terminal velocity.
-                let trueWindFactor = state.trueWind.spd / 200.0;
-
-                driveForce = boat.baseDrive * trueWindFactor * eff * basePower;
-
-                // Extra massive drive force when planing to ensure we overcome the water resistance 
-                // and quickly accelerate up to our new +1.0kt hull speed limit
-                if (boat.isPlaning) {
-                    driveForce *= 1.6;
-                }
-            }
-
-            // In-irons: Head to wind
-            if (inNoGo) {
-                let trueWindFactor = state.trueWind.spd / 200.0;
-                let trueRelWindSign = Math.sign(angleDiff(state.trueWind.dir, boat.heading));
-
-                // Aerodynamic drag on the rig. 
-                // We scale it back as speed gets higher so you don't hit a wall while tacking,
-                // but it always eventually stops you if you're stuck in irons.
-                let speedBrake = Math.max(0, 1.0 - (fwdSpeed / 80.0));
-                let backForce = boat.baseDrive * (0.1 + 1.1 * speedBrake) * trueWindFactor;
-                boat.vx -= (backForce / boat.mass) * Math.cos(boat.heading) * dt;
-                boat.vy -= (backForce / boat.mass) * Math.sin(boat.heading) * dt;
-
-                // Weathervaning:
-                // If you are tacking with momentum (fwdSpeed > 20), don't interfere.
-                // If you stall (fwdSpeed < 20), the wind blows the bow OFF the wind.
-                // If you are pointed straight into the eye, you drift backwards straight.
-                let trueRelWindAbs = Math.abs(angleDiff(state.trueWind.dir, boat.heading));
-                let centerDeadband = Math.max(0, 1.0 - trueRelWindAbs / (Math.PI * 0.08));
-
-                let spinDir = (trueRelWindSign >= 0) ? 1.0 : -1.0; // Blow OFF wind
-
-                // The slower you are, the more the wind grabs the bow. Caps at 1.0 when fwdSpeed <= 0.
-                let stallGrip = Math.max(0, Math.min(1.0, 1.0 - (fwdSpeed / 20.0)));
-
-                let autoSpin = spinDir * boat.turnRate * 0.4 * stallGrip * (1.0 - centerDeadband) * dt;
-
-                // If drifting backwards and user is actively steering, let the rudder win over the wind's auto-spin
-                if (fwdSpeed < -2 && boat.rudder !== 0) {
-                    autoSpin *= 0.1;
-                }
-
-                boat.heading += autoSpin;
-            }
-
-            // Turning: speed-dependent, sign of fwdSpeed reverses rudder when going backward
-            let turnEffectiveness = Math.min(1.0, Math.abs(fwdSpeed) / 60.0) * Math.sign(fwdSpeed);
-            if (Math.abs(fwdSpeed) < 2) turnEffectiveness *= 0.1; // very sluggish near zero
-
-            // Calculate base rudder turning
-            let rudderTurn = boat.rudder * boat.turnRate * turnEffectiveness * dt;
-
-            // Over-trim Weather Helm
-            // If the sail is sheeted in too hard (trim < bestTrim), it creates weather helm.
-            // Strong enough to overpower the rudder on a broad reach.
-            let overTrimWeatherHelm = 0;
-            if (!inNoGo && boat.trim < bestTrim) {
-                let overTrimAmount = (bestTrim - boat.trim) / 100.0; // 0.0 to 1.0
-                let speedFactor = Math.min(1.0, Math.abs(fwdSpeed) / 40.0);
-
-                // Use True Wind to determine side, because Apparent Wind sign flips rapidly when pinching upwind
-                let trueRelWindSign = Math.sign(angleDiff(state.trueWind.dir, boat.heading));
-
-                // We scale it down as we go upwind so it doesn't flutter at the no-go threshold,
-                // but keep it full strength (3.5 * dt) on a broad reach to overpower the rudder.
-                let upwindFade = (absRelWind > Math.PI / 2) ? Math.max(0.15, 1.0 - (absRelWind - Math.PI / 2) / (Math.PI / 2)) : 1.0;
-                overTrimWeatherHelm = -trueRelWindSign * overTrimAmount * speedFactor * upwindFade * 3.5 * dt;
-            }
-
-            boat.heading += rudderTurn + overTrimWeatherHelm;
-
-            // Acceleration from drive
-            let ax = (driveForce / boat.mass) * Math.cos(boat.heading);
-            let ay = (driveForce / boat.mass) * Math.sin(boat.heading);
-
-            boat.vx += ax * dt;
-            boat.vy += ay * dt;
-
-            // Hydrodynamic Drag (different for forward vs lateral)
-            let fwdX = Math.cos(boat.heading);
-            let fwdY = Math.sin(boat.heading);
-            let latX = Math.cos(boat.heading + Math.PI / 2);
-            let latY = Math.sin(boat.heading + Math.PI / 2);
-
-            // Project velocity
-            let vFwd = boat.vx * fwdX + boat.vy * fwdY;
-            let vLat = boat.vx * latX + boat.vy * latY;
-
-            // Apply drag (forward: linear; lateral: speed-scaled keel effect)
-            vFwd *= Math.max(0, 1.0 - boat.dragFwd * dt);
-
-            // Hull speed limit (aggressive exponential drag on excess speed)
-            let currentHullSpeed = boat.hullSpeed || 270;
-            if (boat.isPlaning) {
-                currentHullSpeed += 40; // 40 px/s is exactly 1.0 kt visual
-            }
-
-            if (Math.abs(vFwd) > currentHullSpeed) {
-                let excess = Math.abs(vFwd) - currentHullSpeed;
-                // Braking force scales heavily with how far over hull speed we are
-                let brakingForce = excess * 4.0 * dt;
-                vFwd -= Math.sign(vFwd) * Math.min(excess, brakingForce);
-            }
-
-            // Keel: at full speed locks lateral slip (ice-skate model); stalls at low speed
-            let speedFactor = Math.min(1.0, Math.abs(vFwd) / 60.0);
-            let effectiveDragLat = boat.dragLat * (0.5 + 5.5 * speedFactor);
-            vLat *= Math.max(0, 1.0 - effectiveDragLat * dt);
-
-            // Reconstruct velocity
-            boat.vx = vFwd * fwdX + vLat * latX;
-            boat.vy = vFwd * fwdY + vLat * latY;
-
-            // Position update
-            boat.x += boat.vx * dt;
-            boat.y += boat.vy * dt;
-
-            // --- World Boundary ---
-            const BOUNDARY_R = CONFIG.mapRadius * 1.7;
-            let distFromCenter = Math.hypot(boat.x, boat.y);
-            if (distFromCenter > BOUNDARY_R) {
-                let overBy = distFromCenter - BOUNDARY_R;
-                let nx = boat.x / distFromCenter;
-                let ny = boat.y / distFromCenter;
-                // Proportional push back toward center
-                boat.vx -= nx * overBy * 1.2 * dt;
-                boat.vy -= ny * overBy * 1.2 * dt;
-                // Hard clamp so you can't escape entirely
-                if (distFromCenter > BOUNDARY_R * 1.15) {
-                    boat.x = nx * BOUNDARY_R * 1.15;
-                    boat.y = ny * BOUNDARY_R * 1.15;
-                    // Dampen velocity toward boundary
-                    let vDot = boat.vx * nx + boat.vy * ny;
-                    if (vDot > 0) { boat.vx -= nx * vDot; boat.vy -= ny * vDot; }
-                }
-            }
-
-            // Island Collision
-            for (let iso of islands) {
-                let dx = boat.x - iso.x;
-                let dy = boat.y - iso.y;
-                let dist = Math.hypot(dx, dy);
-                let minDist = boat.length / 2 + iso.r;
-                if (dist < minDist) {
-                    // Push out
-                    let overlap = minDist - dist;
-                    boat.x += (dx / dist) * overlap;
-                    boat.y += (dy / dist) * overlap;
-                    // Bump
-                    boat.vx *= 0.5;
-                    boat.vy *= 0.5;
-                }
-            }
-
-            // Dolphin Rescue (stuck check)
-            let speedSq = boat.vx * boat.vx + boat.vy * boat.vy;
-            if (speedSq < 25) { // moving very slowly
-                state.stuckTimer += dt;
-                if (state.stuckTimer > 3.0) {
-                    state.stuckTimer = 0;
-
-                    // Find push direction away from nearest obstruction
-                    let pushDir = boat.heading;
-                    let minDist = Infinity;
-
-                    // Check World Boundary
-                    let distToBoundary = BOUNDARY_R - distFromCenter;
-                    if (distToBoundary < 100 && distToBoundary < minDist) {
-                        minDist = distToBoundary;
-                        // Push towards the center of the world
-                        pushDir = Math.atan2(-boat.y, -boat.x);
-                    }
-
-                    // Check Islands
-                    for (let iso of islands) {
-                        let dx = boat.x - iso.x;
-                        let dy = boat.y - iso.y;
-                        let distToIsland = Math.hypot(dx, dy) - (iso.r + boat.length / 2);
-                        if (distToIsland < Math.min(100, minDist)) {
-                            minDist = distToIsland;
-                            // Push away from the center of the island
-                            pushDir = Math.atan2(dy, dx);
-                        }
-                    }
-
-                    // Push boat to unstick
-                    boat.vx += Math.cos(pushDir) * 150 + (Math.random() - 0.5) * 30;
-                    boat.vy += Math.sin(pushDir) * 150 + (Math.random() - 0.5) * 30;
-
-                    // Also turn the boat in that direction so it can sail away
-                    boat.heading = pushDir;
-
-                    // Spawn a rescuing dolphin
-                    dolphins.push({
-                        x: boat.x,
-                        y: boat.y,
-                        dir: pushDir + (Math.random() - 0.5) * 0.5,
-                        life: 2.0
-                    });
-                }
-            } else {
-                state.stuckTimer = 0;
-            }
-
+        // --- INTERPOLATION & VISUALS ---
+        function updateInterpolation(time, dt) {
             // Update dolphins
             for (let i = dolphins.length - 1; i >= 0; i--) {
                 let d = dolphins[i];
@@ -1402,47 +1127,168 @@
                 if (d.life <= 0) dolphins.splice(i, 1);
             }
 
-            // Update Speedometer
-            let currentFwdSpeed = Math.abs(boat.vx * Math.cos(boat.heading) + boat.vy * Math.sin(boat.heading));
-            let maxExpectedSpeed = boat.hullSpeed || 270;
-            let speedRatio = Math.min(1.0, currentFwdSpeed / maxExpectedSpeed);
-            let activeBars = Math.round(speedRatio * 5);
-            speedBars.forEach((bar, i) => {
-                bar.className = i < activeBars ? 'speed-bar active' : 'speed-bar';
-            });
+            if (snapshots.length < 2) return;
 
-            // 270 px/sec roughly scales to a fast monohull max of ~6.75 knots
-            let knots = currentFwdSpeed * 0.025;
-            speedText.innerText = knots.toFixed(1) + " kt";
+            // Assuming 100ms broadcasting (10Hz) and we want ~120ms rendering delay 
+            // so we always have a past and future snapshot to lerp between
+            const renderTime = performance.now() - 120;
+
+            // Find bounding snapshots
+            let snap0 = snapshots[0];
+            let snap1 = snapshots[1];
+            for (let i = 1; i < snapshots.length; i++) {
+                if (snapshots[i].time > renderTime) {
+                    snap0 = snapshots[i - 1];
+                    snap1 = snapshots[i];
+                    break;
+                }
+            }
+            if (!snap1) { snap1 = snapshots[snapshots.length - 1]; snap0 = snap1; }
+
+            let lerpFactor = 0;
+            if (snap1.time > snap0.time) {
+                lerpFactor = (renderTime - snap0.time) / (snap1.time - snap0.time);
+                lerpFactor = Math.max(0, Math.min(1, lerpFactor));
+            }
+
+            const activeIds = new Set();
+
+            for (const sBoat of snap1.data.boats) {
+                activeIds.add(sBoat.id);
+
+                // Find matching boat in snap0
+                const sBoat0 = snap0.data.boats.find(b => b.id === sBoat.id) || sBoat;
+
+                let b = netBoats.get(sBoat.id);
+                if (!b) {
+                    b = {
+                        id: sBoat.id,
+                        x: sBoat.x / 10, y: sBoat.y / 10,
+                        vx: sBoat.vx / 10, vy: sBoat.vy / 10,
+                        heading: (sBoat.heading / 65535) * Math.PI * 2,
+                        trim: sBoat.trim / 1000,
+                        inIrons: false, isPlaning: false, stuckTimer: 0,
+                        sailAngle: 0, billowSide: 1, lastDolphinTick: 0,
+                        color: sBoat.id === myBoatId ? '#2ecc71' : '#e74c3c', // Red if enemy!
+                        width: 22, length: 50
+                    };
+                    netBoats.set(sBoat.id, b);
+                }
+
+                // Lerp Position
+                b.x = sBoat0.x / 10 + ((sBoat.x - sBoat0.x) / 10) * lerpFactor;
+                b.y = sBoat0.y / 10 + ((sBoat.y - sBoat0.y) / 10) * lerpFactor;
+
+                b.vx = sBoat0.vx / 10 + ((sBoat.vx - sBoat0.vx) / 10) * lerpFactor;
+                b.vy = sBoat0.vy / 10 + ((sBoat.vy - sBoat0.vy) / 10) * lerpFactor;
+
+                b.trim = sBoat0.trim / 1000 + ((sBoat.trim - sBoat0.trim) / 1000) * lerpFactor;
+
+                // Lerp heading strictly along shortest path
+                const hdg0 = (sBoat0.heading / 65535) * Math.PI * 2;
+                const hdg1 = (sBoat.heading / 65535) * Math.PI * 2;
+                b.heading = hdg0 + angleDiff(hdg1, hdg0) * lerpFactor;
+
+                // Decode Flags bits (1=irons, 2=planing, 4=stuck)
+                b.inIrons = (sBoat.flags & 1) !== 0;
+                b.isPlaning = (sBoat.flags & 2) !== 0;
+
+                // Dolphin trigger (only fire once per flagged server tick)
+                if ((sBoat.flags & 4) !== 0 && b.lastDolphinTick !== snap1.data.serverTick) {
+                    b.lastDolphinTick = snap1.data.serverTick;
+                    const count = 3 + Math.floor(Math.random() * 5); // 3 to 7
+                    for (let i = 0; i < count; i++) {
+                        // Spawn them slightly *in front* of the boat, and make them swim *backwards* towards it, 
+                        // so they look like they are pushing it away from the island with their beaks.
+                        dolphins.push({
+                            x: b.x + Math.cos(b.heading) * 40 + (Math.random() - 0.5) * 40,
+                            y: b.y + Math.sin(b.heading) * 40 + (Math.random() - 0.5) * 40,
+                            dir: b.heading + Math.PI + (Math.random() - 0.5) * 1.5,
+                            life: 1.5 + Math.random() * 1.0
+                        });
+                    }
+                }
+
+                // Visual Sail Swing Math (identical to old updatePhysics)
+                let twVx = state.trueWind.spd * Math.cos(state.trueWind.dir);
+                let twVy = state.trueWind.spd * Math.sin(state.trueWind.dir);
+                let awVx = twVx - b.vx; let awVy = twVy - b.vy;
+                let awDir = Math.atan2(awVy, awVx);
+                let relWind = angleDiff(awDir, b.heading);
+                let absRelWind = Math.abs(relWind);
+
+                let maxSwing = b.trim * (Math.PI / 2);
+                let naturalOut = Math.max(0, Math.min(Math.PI / 2 - (absRelWind - Math.PI / 2), Math.PI / 2));
+                let boomOut = Math.min(naturalOut, maxSwing);
+                let targetSailAngle = (relWind >= 0) ? -boomOut : boomOut;
+
+                let sailDiff = angleDiff(targetSailAngle, b.sailAngle);
+                let maxSwingSpeed = 3.6 * dt;
+                let sailMove = sailDiff * 8.0 * dt;
+                b.sailAngle += Math.max(-maxSwingSpeed, Math.min(maxSwingSpeed, sailMove));
+                b.billowSide = (relWind >= 0) ? 1 : -1;
+
+                // Active Player HUD Updates
+                if (b.id === myBoatId) {
+                    let trimError = Math.abs((b.trim * 100) - ((1.0 - absRelWind / Math.PI) * 100));
+
+                    // HUD Setup
+                    let feedback = "Good";
+                    trimFeedback.className = "good";
+                    if (b.inIrons) {
+                        feedback = "In Irons!"; trimFeedback.className = "error";
+                    } else if (b.isPlaning) {
+                        feedback = "On a plane!"; trimFeedback.className = "planing";
+                    } else if (trimError > 40) {
+                        feedback = b.trim * 100 < ((1.0 - absRelWind / Math.PI) * 100) ? "Let out!" : "Sheet in!"; trimFeedback.className = "error";
+                    } else if (trimError > 20) {
+                        feedback = b.trim * 100 < ((1.0 - absRelWind / Math.PI) * 100) ? "Let out" : "Sheet in"; trimFeedback.className = "warning";
+                    } else if (trimError <= 8) {
+                        feedback = "Best"; trimFeedback.className = "best";
+                    }
+                    trimFeedback.innerText = feedback;
+
+                    let currentFwdSpeed = Math.abs(b.vx * Math.cos(b.heading) + b.vy * Math.sin(b.heading));
+                    let speedRatio = Math.min(1.0, currentFwdSpeed / 270);
+                    let activeBars = Math.round(speedRatio * 5);
+                    speedBars.forEach((bar, i) => bar.className = i < activeBars ? 'speed-bar active' : 'speed-bar');
+                    speedText.innerText = (currentFwdSpeed * 0.025).toFixed(1) + " kt";
+                }
+            }
+
+            // Cleanup stale boats
+            for (const key of netBoats.keys()) {
+                if (!activeIds.has(key)) netBoats.delete(key);
+            }
         }
 
         // --- DRAWING ---
-        function drawBoat(ctx) {
+        function drawBoat(ctx, b) {
             ctx.save();
-            ctx.translate(boat.x, boat.y);
-            ctx.rotate(boat.heading);
+            ctx.translate(b.x, b.y);
+            ctx.rotate(b.heading);
 
             // Hull shadow
             ctx.fillStyle = 'rgba(0,0,0,0.2)';
             ctx.beginPath();
-            ctx.ellipse(5, 5, boat.length / 2, boat.width / 2 + 2, 0, 0, Math.PI * 2);
+            ctx.ellipse(5, 5, b.length / 2, b.width / 2 + 2, 0, 0, Math.PI * 2);
             ctx.fill();
 
             // Hull
-            ctx.fillStyle = boat.color;
+            ctx.fillStyle = b.color;
             ctx.strokeStyle = '#2c3e50';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.moveTo(boat.length / 2, 0); // Bow
-            ctx.quadraticCurveTo(0, boat.width / 2, -boat.length / 2, boat.width / 2 - 2); // Stern right
-            ctx.lineTo(-boat.length / 2, -boat.width / 2 + 2); // Stern left
-            ctx.quadraticCurveTo(0, -boat.width / 2, boat.length / 2, 0); // Back to bow
+            ctx.moveTo(b.length / 2, 0); // Bow
+            ctx.quadraticCurveTo(0, b.width / 2, -b.length / 2, b.width / 2 - 2); // Stern right
+            ctx.lineTo(-b.length / 2, -b.width / 2 + 2); // Stern left
+            ctx.quadraticCurveTo(0, -b.width / 2, b.length / 2, 0); // Back to bow
             ctx.fill();
             ctx.stroke();
 
             // Mast
             ctx.fillStyle = '#7f8c8d';
-            let mastX = boat.length * 0.15; // Slightly forward
+            let mastX = b.length * 0.15; // Slightly forward
             ctx.beginPath();
             ctx.arc(mastX, 0, 4, 0, Math.PI * 2);
             ctx.fill();
@@ -1450,23 +1296,23 @@
             // Calculate apparent wind relative to boat for sail visuals
             let twVx = state.trueWind.spd * Math.cos(state.trueWind.dir);
             let twVy = state.trueWind.spd * Math.sin(state.trueWind.dir);
-            let awVx = twVx - boat.vx;
-            let awVy = twVy - boat.vy;
+            let awVx = twVx - b.vx;
+            let awVy = twVy - b.vy;
             let awDir = Math.atan2(awVy, awVx);
-            let relWind = angleDiff(awDir, boat.heading);
+            let relWind = angleDiff(awDir, b.heading);
 
             ctx.save();
             // Sail rotates around mast
             ctx.translate(mastX, 0);
 
             // Driven by physics engine calculation
-            let sailAngle = boat.sailAngle || 0;
+            let sailAngle = b.sailAngle || 0;
 
             // Luffing: in no-go zone OR sail over-trimmed (sheeted past the wind)
             let luffing = false;
             let absRelWindDraw = Math.abs(relWind);
             let bestTrimDraw = (1.0 - absRelWindDraw / Math.PI) * 100;
-            if (absRelWindDraw > (Math.PI * 11 / 12) || boat.trim > bestTrimDraw + 30) {
+            if (absRelWindDraw > (Math.PI * 11 / 12) || (b.trim * 100) > bestTrimDraw + 30) {
                 luffing = true;
             }
 
@@ -1481,25 +1327,21 @@
             ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.moveTo(0, 0);
-            ctx.lineTo(-boat.length * 0.8, 0);
+            ctx.lineTo(-b.length * 0.8, 0);
             ctx.stroke();
 
             // Canvas Sail Shape
-            // After ctx.rotate(sailAngle), local-X is along the boom, local-Y is perpendicular.
-            // The boom is already on the leeward side (sailAngle is negative when wind from starboard).
-            // billowSide: -1 when wind from starboard, +1 when wind from port.
-            // In rotated frame, billowSide * boat.width pushes the curve further leeward. ✓
             ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
             ctx.beginPath();
             ctx.moveTo(0, 0); // Mast attach
             if (luffing) {
                 // Flat/Flapping
-                ctx.lineTo(-boat.length * 0.8, 0);
+                ctx.lineTo(-b.length * 0.8, 0);
                 ctx.lineTo(0, -2);
             } else {
-                let bSide = boat.billowSide || 1;
+                let bSide = b.billowSide || 1;
                 // Control point: midway along boom, pushed out by bSide in local-Y
-                ctx.quadraticCurveTo(-boat.length * 0.45, bSide * boat.width * 1.2, -boat.length * 0.8, 0);
+                ctx.quadraticCurveTo(-b.length * 0.45, bSide * b.width * 1.2, -b.length * 0.8, 0);
             }
             ctx.closePath();
             ctx.fill();
@@ -1507,6 +1349,30 @@
 
             ctx.restore(); // Mast
             ctx.restore(); // Boat
+
+            // Draw floating Nameplate
+            const pInfo = playersById[b.id];
+            if (pInfo && pInfo.name && b.id !== myBoatId) {
+                ctx.save();
+                ctx.translate(b.x, b.y - b.length / 2 - 25); // Hover above boat
+                // Scale nameplate back to 1.0 logic to counter camera zoom so text is readable
+                ctx.scale(1 / state.cameraZoom, 1 / state.cameraZoom);
+
+                ctx.font = '12px sans-serif';
+                const textW = ctx.measureText(pInfo.name).width;
+
+                // Dark pill background
+                ctx.fillStyle = 'rgba(0,0,0,0.55)';
+                ctx.beginPath();
+                ctx.roundRect(-textW / 2 - 6, -10, textW + 12, 18, 9);
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(pInfo.name, 0, 0);
+                ctx.restore();
+            }
         }
 
         function drawGame() {
@@ -1519,8 +1385,12 @@
             ctx.translate(width / 2, height / 2);
             // Apply physical zoom level
             ctx.scale(state.cameraZoom, state.cameraZoom);
-            // Translate to boat position
-            ctx.translate(-boat.x, -boat.y);
+
+            // Translate to active player boat position
+            let myBoat = netBoats.get(myBoatId);
+            if (myBoat) {
+                ctx.translate(-myBoat.x, -myBoat.y);
+            }
 
             // Draw Boundary Ring (edge of the known world)
             const BOUNDARY_R = CONFIG.mapRadius * 1.7;
@@ -1557,16 +1427,18 @@
                 ctx.fill();
             }
 
-            // Wake trailing
-            let currentSpeed = Math.abs(boat.vx) + Math.abs(boat.vy);
-            if (currentSpeed > 10) {
-                let wakeSize = Math.max(2, Math.min(14, currentSpeed / 12));
-                ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
-                ctx.beginPath();
-                let sternX = boat.x - Math.cos(boat.heading) * boat.length / 2;
-                let sternY = boat.y - Math.sin(boat.heading) * boat.length / 2;
-                ctx.arc(sternX, sternY, wakeSize, 0, Math.PI * 2);
-                ctx.fill();
+            // Wake trailing (all boats)
+            for (let b of netBoats.values()) {
+                let currentSpeed = Math.abs(b.vx) + Math.abs(b.vy);
+                if (currentSpeed > 10) {
+                    let wakeSize = Math.max(2, Math.min(14, currentSpeed / 12));
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+                    ctx.beginPath();
+                    let sternX = b.x - Math.cos(b.heading) * b.length / 2;
+                    let sternY = b.y - Math.sin(b.heading) * b.length / 2;
+                    ctx.arc(sternX, sternY, wakeSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
 
             // Draw Dolphins
@@ -1600,7 +1472,10 @@
                 ctx.restore();
             }
 
-            drawBoat(ctx);
+            // Draw All Boats
+            for (let b of netBoats.values()) {
+                drawBoat(ctx, b);
+            }
 
             ctx.restore();
         }
@@ -1613,8 +1488,10 @@
             mCtx.translate(270, 270); // Center
 
             const BOUNDARY_R = CONFIG.mapRadius * 1.7;
-            // The edge of the minimap container *is* the world boundary
-            const scale = 270 / BOUNDARY_R;
+            // The edge of the minimap container *is* the world boundary.
+            // A boat at the boundary draws a triangle projecting exactly 24 canvas pixels outward.
+            // To prevent the CSS border-radius clip from eating it, we limit the maximum physical scale to 270 - 25 = 245 pixels.
+            const scale = (270 - 25) / BOUNDARY_R;
             mCtx.scale(scale, scale);
 
             // Water tint
@@ -1622,6 +1499,11 @@
             mCtx.arc(0, 0, BOUNDARY_R, 0, Math.PI * 2);
             mCtx.fillStyle = 'rgba(79, 195, 247, 0.15)'; // Very faint blue over the white bg
             mCtx.fill();
+
+            // Draw the gray outline in the canvas natively so boats can render *above* it
+            mCtx.lineWidth = 8 / scale;
+            mCtx.strokeStyle = '#bdc3c7';
+            mCtx.stroke();
 
             // Islands
             for (let iso of islands) {
@@ -1635,18 +1517,20 @@
                 mCtx.stroke();
             }
 
-            // Boat (GPS-style triangle)
-            mCtx.fillStyle = '#ff4757'; // High-vis red
-            mCtx.save();
-            mCtx.translate(boat.x, boat.y);
-            mCtx.rotate(boat.heading);
-            mCtx.beginPath();
-            mCtx.moveTo(24 / scale, 0); // Bow (front apex)
-            mCtx.lineTo(-15 / scale, 12 / scale); // Stern (port corner)
-            mCtx.lineTo(-15 / scale, -12 / scale); // Stern (starboard corner)
-            mCtx.closePath();
-            mCtx.fill();
-            mCtx.restore();
+            // Boats (GPS-style triangles)
+            for (let b of netBoats.values()) {
+                mCtx.fillStyle = b.id === myBoatId ? '#2ecc71' : '#ff4757';
+                mCtx.save();
+                mCtx.translate(b.x, b.y);
+                mCtx.rotate(b.heading);
+                mCtx.beginPath();
+                mCtx.moveTo(24 / scale, 0); // Bow (front apex)
+                mCtx.lineTo(-15 / scale, 12 / scale); // Stern (port corner)
+                mCtx.lineTo(-15 / scale, -12 / scale); // Stern (starboard corner)
+                mCtx.closePath();
+                mCtx.fill();
+                mCtx.restore();
+            }
 
             mCtx.restore();
         }
@@ -1662,7 +1546,7 @@
             if (dt > 0.1) dt = 0.1;
 
             if (!state.tutorialOpen) {
-                updatePhysics(dt);
+                updateInterpolation(time, dt);
             }
             drawGame();
             drawMinimap();
