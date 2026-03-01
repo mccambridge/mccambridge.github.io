@@ -761,6 +761,7 @@
         let playersById = {}; // string -> { name, boatId, joinedAt }
         let islands = [];
         let snapshots = []; // Buffer for interpolation
+        let timeOffset = null; // Syncs precise server physics ticks to local performance.now()
         let currentTrim = 500; // 0 to 1000
         let currentRudder = 0; // -127 to 127
         let inputInterval = null;
@@ -854,6 +855,7 @@
                     if (msg.type === "session_reset") {
                         snapshots = [];
                         netBoats.clear();
+                        timeOffset = null;
                     }
                 }
                 else if (msg.type === "players_full") {
@@ -866,8 +868,20 @@
                 }
                 else if (msg.type === "snapshot") {
                     state.serverTick = msg.data.serverTick;
+
+                    let serverTime = msg.data.serverTick * 50; // Server ticks at exactly 20Hz (50ms)
+                    let localTime = performance.now();
+
+                    if (timeOffset === null) {
+                        timeOffset = localTime - serverTime;
+                    } else {
+                        // Gently drift the offset toward reality to account for long-term physics clock vs CPU clock skew
+                        let currentOffset = localTime - serverTime;
+                        timeOffset += (currentOffset - timeOffset) * 0.05;
+                    }
+
                     snapshots.push({
-                        time: performance.now(),
+                        time: serverTime + timeOffset,
                         data: msg.data
                     });
 
