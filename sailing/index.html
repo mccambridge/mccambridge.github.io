@@ -316,6 +316,12 @@
             color: #0984e3;
         }
 
+        #trim-feedback.planing {
+            background: #0984e3;
+            color: #ffffff;
+            font-weight: 800;
+        }
+
         /* Speed Indicator */
         #speed-container {
             position: absolute;
@@ -684,7 +690,7 @@
         </div>
 
         <div id="start-screen" class="overlay">
-            <div class="title">Broadside: Prototype</div>
+            <div class="title">Broadside</div>
             <div class="archetype-container">
                 <button class="btn-ship" id="btn-start">
                     START SAILING
@@ -1095,6 +1101,22 @@
             let bestTrim = (1.0 - absRelWind / Math.PI) * 100;
             let trimError = Math.abs(boat.trim - bestTrim);
 
+            // True Wind Angle for Polar and Planing Checks
+            let absTWA = Math.abs(angleDiff(state.trueWind.dir, boat.heading));
+            let deg = absTWA * (180 / Math.PI);
+
+            // Planing Mechanic (Beam to Broad Reach: deg is between 20 and 90, which means 90 to 160 off the wind)
+            // Hysteresis: as you accelerate, Apparent Wind shifts forward, changing your "Best" trim rapidly.
+            // We give a generous +-25 buffer to stay in Planing so the speed shift doesn't instantly cancel your buff.
+            let planingTolerance = boat.isPlaning ? 25 : 8;
+            if (trimError <= planingTolerance && deg >= 20 && deg <= 90) {
+                if (typeof boat.planingTimer === 'undefined') boat.planingTimer = 0;
+                boat.planingTimer += dt;
+            } else {
+                boat.planingTimer = 0;
+            }
+            boat.isPlaning = boat.planingTimer >= 5.0;
+
             // UI Feedback
             let feedback = "Good";
             trimFeedback.className = "good";
@@ -1103,17 +1125,20 @@
                     feedback = "In Irons!";
                     trimFeedback.className = "error";
                 } else {
-                    feedback = "Pinching";
+                    feedback = "Too close!";
                     trimFeedback.className = "warning";
                 }
             } else {
-                if (trimError > 50) {
+                if (boat.isPlaning) {
+                    feedback = "On a plane!";
+                    trimFeedback.className = "planing";
+                } else if (trimError > 40) {
                     feedback = boat.trim < bestTrim ? "Let out!" : "Sheet in!";
                     trimFeedback.className = "error";
-                } else if (trimError > 25) {
+                } else if (trimError > 20) {
                     feedback = boat.trim < bestTrim ? "Let out" : "Sheet in";
                     trimFeedback.className = "warning";
-                } else if (trimError <= 10) {
+                } else if (trimError <= 8) {
                     feedback = "Best";
                     trimFeedback.className = "best";
                 }
@@ -1123,13 +1148,11 @@
             // --- Drive Force ---
             let driveForce = 0;
             if (!inNoGo) {
-                // Trim efficiency: 1.0 at perfect trim, falls off gently with error
-                let eff = Math.max(0.05, 1.0 - (trimError / 70.0));
+                // Trim efficiency: 1.0 at perfect trim, power falls off noticeably with error
+                let eff = Math.max(0.05, 1.0 - (trimError / 60.0));
 
                 // Polar: mapped explicitly using True Wind Angle (TWA) to perfectly hit our targets
                 // Convention: 0 = dead downwind, 180 = dead upwind
-                let absTWA = Math.abs(angleDiff(state.trueWind.dir, boat.heading));
-                let deg = absTWA * (180 / Math.PI);
                 let basePower;
 
                 if (deg >= 150) { // 150 - 180 (Close Hauled to Irons)
@@ -1165,6 +1188,12 @@
                 let trueWindFactor = state.trueWind.spd / 200.0;
 
                 driveForce = boat.baseDrive * trueWindFactor * eff * basePower;
+
+                // Extra massive drive force when planing to ensure we overcome the water resistance 
+                // and quickly accelerate up to our new +1.0kt hull speed limit
+                if (boat.isPlaning) {
+                    driveForce *= 1.6;
+                }
             }
 
             // In-irons: Head to wind
@@ -1249,8 +1278,13 @@
             vFwd *= Math.max(0, 1.0 - boat.dragFwd * dt);
 
             // Hull speed limit (aggressive exponential drag on excess speed)
-            if (Math.abs(vFwd) > boat.hullSpeed) {
-                let excess = Math.abs(vFwd) - boat.hullSpeed;
+            let currentHullSpeed = boat.hullSpeed || 270;
+            if (boat.isPlaning) {
+                currentHullSpeed += 40; // 40 px/s is exactly 1.0 kt visual
+            }
+
+            if (Math.abs(vFwd) > currentHullSpeed) {
+                let excess = Math.abs(vFwd) - currentHullSpeed;
                 // Braking force scales heavily with how far over hull speed we are
                 let brakingForce = excess * 4.0 * dt;
                 vFwd -= Math.sign(vFwd) * Math.min(excess, brakingForce);
