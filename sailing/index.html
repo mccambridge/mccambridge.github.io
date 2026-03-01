@@ -377,6 +377,145 @@
             border-radius: 6px;
             cursor: pointer;
         }
+
+        /* ---- Portrait / Rotate Overlay ---- */
+        #rotate-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: linear-gradient(135deg, #0d2137 0%, #1a4a6b 60%, #0d2137 100%);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            text-align: center;
+            gap: 1.5rem;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #rotate-overlay.visible {
+            display: flex;
+        }
+
+        .rotate-scene {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .phone-body {
+            width: 44px;
+            height: 76px;
+            border: 4px solid rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            position: relative;
+            background: rgba(255, 255, 255, 0.07);
+            animation: tiltPhone 2.4s ease-in-out infinite;
+            transform-origin: center center;
+        }
+
+        .phone-body::after {
+            content: '';
+            position: absolute;
+            bottom: 7px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 16px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.55);
+            border-radius: 2px;
+        }
+
+        .rotate-arrows {
+            position: absolute;
+            inset: 0;
+            animation: spinArrows 2.4s ease-in-out infinite;
+        }
+
+        .rotate-arrows svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        @keyframes tiltPhone {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            30% {
+                transform: rotate(0deg);
+            }
+
+            60% {
+                transform: rotate(-90deg);
+            }
+
+            85% {
+                transform: rotate(-90deg);
+            }
+
+            100% {
+                transform: rotate(0deg);
+            }
+        }
+
+        @keyframes spinArrows {
+            0% {
+                opacity: 0.2;
+            }
+
+            30% {
+                opacity: 0.2;
+            }
+
+            52% {
+                opacity: 1;
+            }
+
+            70% {
+                opacity: 0.2;
+            }
+
+            100% {
+                opacity: 0.2;
+            }
+        }
+
+        #rotate-overlay h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: 0.05em;
+        }
+
+        #rotate-overlay p {
+            font-size: 0.9rem;
+            opacity: 0.65;
+            margin: 0;
+        }
+
+        #btn-start-portrait {
+            margin-top: 0.5rem;
+            background: #3498db;
+            color: #fff;
+            border: none;
+            padding: 0.85rem 2.2rem;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: 8px;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            box-shadow: 0 4px 24px rgba(52, 152, 219, 0.45);
+            transition: transform 0.12s;
+        }
+
+        #btn-start-portrait:active {
+            transform: scale(0.96);
+        }
     </style>
 </head>
 
@@ -450,6 +589,28 @@
                     <span>Click to weigh anchor</span>
                 </button>
             </div>
+        </div>
+
+        <!-- Portrait Rotate Overlay -->
+        <div id="rotate-overlay">
+            <div class="rotate-scene">
+                <div class="rotate-arrows">
+                    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Top-right curved arrow -->
+                        <path d="M72 18 A42 42 0 0 1 102 60" stroke="white" stroke-width="5" stroke-linecap="round"
+                            fill="none" opacity="0.9" />
+                        <polygon points="105,52 102,63 93,57" fill="white" opacity="0.9" />
+                        <!-- Bottom-left curved arrow -->
+                        <path d="M48 102 A42 42 0 0 1 18 60" stroke="white" stroke-width="5" stroke-linecap="round"
+                            fill="none" opacity="0.9" />
+                        <polygon points="15,68 18,57 27,63" fill="white" opacity="0.9" />
+                    </svg>
+                </div>
+                <div class="phone-body"></div>
+            </div>
+            <h2>Rotate to Play</h2>
+            <p>This game is best in landscape mode</p>
+            <button id="btn-start-portrait">START SAILING</button>
         </div>
     </div>
 
@@ -579,8 +740,56 @@
             requestAnimationFrame(gameLoop);
         }
 
+        // --- Orientation & Fullscreen ---
+        const rotateOverlay = document.getElementById('rotate-overlay');
+        let gestureGranted = false;
+
+        function isMobile() {
+            // Touch device with a mobile-sized screen — reliable cross-browser signal
+            return navigator.maxTouchPoints > 0 && window.screen.width <= 1024;
+        }
+
+        function requestFS() {
+            if (!isMobile()) return; // Desktop: never fullscreen
+            const el = document.documentElement;
+            try {
+                if (el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' });
+                else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+            } catch (e) { /* Some browsers block fullscreen silently */ }
+        }
+
+        function isLandscape() {
+            return window.innerWidth > window.innerHeight;
+        }
+
+        function checkOrientation() {
+            if (isLandscape()) {
+                rotateOverlay.classList.remove('visible');
+                if (gestureGranted) requestFS();
+            } else {
+                rotateOverlay.classList.add('visible');
+            }
+        }
+
+        window.addEventListener('orientationchange', () => setTimeout(checkOrientation, 150));
+        window.addEventListener('resize', checkOrientation);
+        checkOrientation(); // Run immediately on load
+
         document.getElementById('btn-start').addEventListener('click', () => {
+            gestureGranted = true;
+            requestFS();
             startGame();
+        });
+
+        document.getElementById('btn-start-portrait').addEventListener('click', () => {
+            gestureGranted = true;
+            // If they somehow tap this in landscape, start immediately
+            if (isLandscape()) {
+                requestFS();
+                rotateOverlay.classList.remove('visible');
+                // Don't auto-start; let the user see the landscape start screen
+            }
+            // Otherwise just bank the gesture — the orientationchange handler will fire fullscreen
         });
 
         document.getElementById('btn-close-tut').addEventListener('click', () => {
@@ -690,10 +899,16 @@
             // Forward speed (negative = moving backward)
             let fwdSpeed = boat.vx * Math.cos(boat.heading) + boat.vy * Math.sin(boat.heading);
 
-            // --- No-go zone: within 15° of the APPARENT wind (upwind) ---
-            // Convention: absRelWind ~ 0 = dead downwind, ~ PI = dead upwind (into wind)
-            // In-irons when within 15° of dead upwind
-            let inNoGo = absRelWind > (Math.PI * 11 / 12);
+            // --- No-go zone with hysteresis ---
+            // Enter irons at 165° (11/12 * PI), must reach 150° (5/6 * PI) to exit.
+            // This prevents the boundary oscillation that lets driveForce fire and cancel backForce.
+            if (boat.inIrons === undefined) boat.inIrons = false;
+            if (!boat.inIrons && absRelWind > (Math.PI * 11 / 12)) {
+                boat.inIrons = true;  // Enter irons
+            } else if (boat.inIrons && absRelWind < (Math.PI * 5 / 6)) {
+                boat.inIrons = false; // Exit irons (must fall further off the wind)
+            }
+            let inNoGo = boat.inIrons;
 
             // --- Sail/Boom Angle ---
             // trim=100 → sheet fully out → boom can swing up to 90° (PI/2)
@@ -813,7 +1028,7 @@
                 // We scale it back as speed gets higher so you don't hit a wall while tacking,
                 // but it always eventually stops you if you're stuck in irons.
                 let speedBrake = Math.max(0, 1.0 - (fwdSpeed / 80.0));
-                let backForce = boat.baseDrive * (0.1 + 0.35 * speedBrake) * trueWindFactor;
+                let backForce = boat.baseDrive * (0.1 + 1.1 * speedBrake) * trueWindFactor;
                 boat.vx -= (backForce / boat.mass) * Math.cos(boat.heading) * dt;
                 boat.vy -= (backForce / boat.mass) * Math.sin(boat.heading) * dt;
 
@@ -839,18 +1054,9 @@
                 boat.heading += autoSpin;
             }
 
-            // Keel Stall and Steering Physics
-            let turnEffectiveness = 0;
-            if (fwdSpeed <= -2) {
-                // Reverse helm - strong bite out of irons
-                turnEffectiveness = Math.max(-1.0, fwdSpeed / 40.0);
-            } else if (fwdSpeed >= 20) {
-                // Forward steerage - needs 0.5 knots to bite fully, ramps up nicely
-                turnEffectiveness = Math.min(1.0, ((fwdSpeed - 20) / 40.0) + 0.2);
-            } else if (fwdSpeed > 0) {
-                // Stalled keel (0 to 20 px/s): Not enough water flow over foils. No steerage way!
-                turnEffectiveness = (fwdSpeed / 20.0) * 0.15; // 0 to 15% turning power max
-            }
+            // Turning: speed-dependent, sign of fwdSpeed reverses rudder when going backward
+            let turnEffectiveness = Math.min(1.0, Math.abs(fwdSpeed) / 60.0) * Math.sign(fwdSpeed);
+            if (Math.abs(fwdSpeed) < 2) turnEffectiveness *= 0.1; // very sluggish near zero
 
             // Calculate base rudder turning
             let rudderTurn = boat.rudder * boat.turnRate * turnEffectiveness * dt;
