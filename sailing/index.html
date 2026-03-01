@@ -59,6 +59,10 @@
             overscroll-behavior: none;
             /* Prevent pulling to refresh on mobile */
             color: var(--text);
+            /* Prevent iOS magnifying glass and selection menu on long press */
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
         }
 
         #game-container {
@@ -409,6 +413,25 @@
             cursor: pointer;
         }
 
+        /* Device-Specific Display Classes */
+        .touch-only {
+            display: none;
+        }
+
+        .desktop-only {
+            display: inline;
+        }
+
+        @media (pointer: coarse) {
+            .touch-only {
+                display: inline;
+            }
+
+            .desktop-only {
+                display: none;
+            }
+        }
+
         /* ---- Mobile / Landscape Optimisations ---- */
 
         /* Use dynamic viewport height: accounts for Safari browser chrome */
@@ -648,8 +671,10 @@
             <div id="tutorial">
                 <h3>Captain's Basics</h3>
                 <ul>
-                    <li><b>Steer:</b> A/D keys, Left/Right arrows, or touch the left/right halves of the screen.</li>
-                    <li><b>Trim:</b> W/S keys, Up/Down arrows, or the Trim Slider.</li>
+                    <li><b>Steer:</b> <span class="desktop-only">A/D keys or Left/Right arrows.</span><span
+                            class="touch-only">Touch left/right sides of the screen.</span></li>
+                    <li><b>Trim:</b> <span class="desktop-only">W/S keys or Up/Down arrows.</span><span
+                            class="touch-only">Use the Trim Slider.</span></li>
                     <li>Avoid pointing straight into the wind!</li>
                     <li>Tack (zig-zag) to go upwind.</li>
                     <li>Keep your sails trimmed to catch the wind.</li>
@@ -944,7 +969,12 @@
         }
 
         canvas.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 1 && steerTouchId === null) {
+            if (e.touches.length > 1 && steerTouchId !== null) {
+                // Second finger touched down (e.g. for pinch zoom), cancel steering
+                steerTouchId = null;
+                state.keys.left = false;
+                state.keys.right = false;
+            } else if (e.touches.length === 1 && steerTouchId === null) {
                 const touch = e.touches[0];
                 steerTouchId = touch.identifier;
 
@@ -954,6 +984,15 @@
 
         canvas.addEventListener('touchmove', (e) => {
             if (steerTouchId === null) return;
+
+            // Failsafe: drop steering if multiple touches are active
+            if (e.touches.length > 1) {
+                steerTouchId = null;
+                state.keys.left = false;
+                state.keys.right = false;
+                return;
+            }
+
             const touch = Array.from(e.changedTouches).find(t => t.identifier === steerTouchId);
             if (!touch) return;
 
