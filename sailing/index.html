@@ -6,6 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Sailing Prototype - Level 0</title>
 
+    <!-- PWA / iOS Standalone -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Sailing">
+    <meta name="mobile-web-app-capable" content="yes">
+
     <!-- Primary Meta Tags -->
     <meta name="title" content="Sailing Prototype - Level 0">
     <meta name="description"
@@ -195,7 +201,9 @@
 
         /* Trim Slider */
         #trim-container {
-            background: var(--ui-bg);
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
             padding: 20px 10px;
             border-radius: 20px;
             display: flex;
@@ -210,11 +218,65 @@
         }
 
         input[type="range"] {
-            -webkit-appearance: slider-vertical;
-            appearance: slider-vertical;
+            -webkit-appearance: none;
+            appearance: none;
+            writing-mode: vertical-lr;
+            direction: rtl;
             width: 30px;
             height: 200px;
             cursor: pointer;
+            touch-action: none;
+            background: transparent;
+            outline: none;
+        }
+
+        /* Custom Track */
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 8px;
+            /* For vertical slider, this is the width */
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 4px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        input[type="range"]::-moz-range-track {
+            width: 8px;
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 4px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        /* Custom Thumb */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 36px;
+            width: 36px;
+            border-radius: 50%;
+            background: #2ecc71;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            margin-left: -14px;
+            /* Center thumb on track (width 36 - 8)/2 */
+            cursor: grab;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            height: 36px;
+            width: 36px;
+            border-radius: 50%;
+            background: #2ecc71;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            border: none;
+            cursor: grab;
+        }
+
+        input[type="range"]:active::-webkit-slider-thumb {
+            background: #27ae60;
+            cursor: grabbing;
+        }
+
+        input[type="range"]:active::-moz-range-thumb {
+            background: #27ae60;
+            cursor: grabbing;
         }
 
         /* Feedback Label */
@@ -309,37 +371,6 @@
             height: 270px;
         }
 
-        /* Mobile Rudder Buttons */
-        #rudder-buttons {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            display: flex;
-            gap: 10px;
-            pointer-events: auto;
-        }
-
-        .btn-rudder {
-            width: 70px;
-            height: 70px;
-            background: var(--ui-bg);
-            border: none;
-            border-radius: 50%;
-            font-size: 2rem;
-            color: #555;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            user-select: none;
-            -webkit-user-select: none;
-            touch-action: none;
-        }
-
-        .btn-rudder:active {
-            background: #ddd;
-            transform: scale(0.95);
-        }
 
         /* Tutorial */
         #tutorial {
@@ -378,143 +409,201 @@
             cursor: pointer;
         }
 
-        /* ---- Portrait / Rotate Overlay ---- */
-        #rotate-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            z-index: 9999;
-            background: linear-gradient(135deg, #0d2137 0%, #1a4a6b 60%, #0d2137 100%);
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            text-align: center;
-            gap: 1.5rem;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+        /* ---- Mobile / Landscape Optimisations ---- */
 
-        #rotate-overlay.visible {
-            display: flex;
-        }
+        /* Use dynamic viewport height: accounts for Safari browser chrome */
+        @supports (height: 100dvh) {
 
-        .rotate-scene {
-            position: relative;
-            width: 120px;
-            height: 120px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .phone-body {
-            width: 44px;
-            height: 76px;
-            border: 4px solid rgba(255, 255, 255, 0.9);
-            border-radius: 10px;
-            position: relative;
-            background: rgba(255, 255, 255, 0.07);
-            animation: tiltPhone 2.4s ease-in-out infinite;
-            transform-origin: center center;
-        }
-
-        .phone-body::after {
-            content: '';
-            position: absolute;
-            bottom: 7px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 16px;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.55);
-            border-radius: 2px;
-        }
-
-        .rotate-arrows {
-            position: absolute;
-            inset: 0;
-            animation: spinArrows 2.4s ease-in-out infinite;
-        }
-
-        .rotate-arrows svg {
-            width: 100%;
-            height: 100%;
-        }
-
-        @keyframes tiltPhone {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            30% {
-                transform: rotate(0deg);
-            }
-
-            60% {
-                transform: rotate(-90deg);
-            }
-
-            85% {
-                transform: rotate(-90deg);
-            }
-
-            100% {
-                transform: rotate(0deg);
+            body,
+            html {
+                height: 100dvh;
             }
         }
 
-        @keyframes spinArrows {
-            0% {
-                opacity: 0.2;
+        @media (max-width: 1024px) and (orientation: landscape) {
+
+            /* Wind compass: compact, tight to top-left */
+            #wind-compass {
+                width: 56px;
+                height: 56px;
+                top: 8px;
+                left: 8px;
             }
 
-            30% {
-                opacity: 0.2;
+            #wind-compass-label {
+                top: 69px;
+                left: 36px;
+                font-size: 0.75rem;
+                padding: 3px 7px;
             }
 
-            52% {
-                opacity: 1;
+            #wind-arrow {
+                font-size: 1.4rem;
             }
 
-            70% {
-                opacity: 0.2;
+            /* Minimap: small, sits below wind label — no overlap */
+            #minimap-container {
+                width: 120px;
+                height: 120px;
+                bottom: 80px;
+                left: 8px;
             }
 
-            100% {
-                opacity: 0.2;
+            #minimap-canvas {
+                width: 120px;
+                height: 120px;
+            }
+
+            /* Trim panel */
+            #right-panel {
+                right: 8px;
+            }
+
+            #trim-container {
+                padding: 10px 8px;
+            }
+
+            #trim-label {
+                margin-bottom: 8px;
+                font-size: 0.8rem;
+            }
+
+            input[type="range"] {
+                height: 100px;
+            }
+
+            #trim-feedback {
+                margin-top: 6px;
+                font-size: 0.78rem;
+                width: 64px;
+            }
+
+            /* Speed indicator */
+            #speed-container {
+                bottom: 8px;
+                padding: 5px 9px;
+            }
+
+            .speed-bar {
+                width: 11px;
+                height: 15px;
+            }
+
+            .speed-text {
+                font-size: 0.8rem;
+            }
+
+            /* Tutorial */
+            #tutorial {
+                width: min(88vw, 290px);
+                padding: 12px;
+                top: 6%;
+            }
+
+            #tutorial ul {
+                font-size: 0.8rem;
             }
         }
 
-        #rotate-overlay h2 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin: 0;
-            letter-spacing: 0.05em;
-        }
+        /* ---- Portrait Mobile Optimisations ---- */
+        @media (max-width: 1024px) and (orientation: portrait) {
 
-        #rotate-overlay p {
-            font-size: 0.9rem;
-            opacity: 0.65;
-            margin: 0;
-        }
+            /* Top Row */
+            #wind-compass {
+                width: 60px;
+                height: 60px;
+                top: 12px;
+                left: 12px;
+            }
 
-        #btn-start-portrait {
-            margin-top: 0.5rem;
-            background: #3498db;
-            color: #fff;
-            border: none;
-            padding: 0.85rem 2.2rem;
-            font-size: 1rem;
-            font-weight: 700;
-            border-radius: 8px;
-            letter-spacing: 0.1em;
-            cursor: pointer;
-            box-shadow: 0 4px 24px rgba(52, 152, 219, 0.45);
-            transition: transform 0.12s;
-        }
+            #wind-compass-label {
+                top: 75px;
+                left: 40px;
+                font-size: 0.8rem;
+                padding: 4px 8px;
+            }
 
-        #btn-start-portrait:active {
-            transform: scale(0.96);
+            #wind-arrow {
+                font-size: 1.5rem;
+            }
+
+            #minimap-container {
+                width: 140px;
+                height: 140px;
+                top: 12px;
+                right: 12px;
+                left: auto;
+                bottom: auto;
+            }
+
+            #minimap-canvas {
+                width: 140px;
+                height: 140px;
+            }
+
+            /* Right Panel Controls (Vertical on the right) */
+            #right-panel {
+                right: 8px;
+                top: 48%;
+                /* sits higher to leave bottom right corner free for steering touches */
+                transform: translateY(-50%);
+                align-items: center;
+                left: auto;
+                bottom: auto;
+            }
+
+            #trim-container {
+                flex-direction: column;
+                width: auto;
+                padding: 12px 8px;
+                gap: 8px;
+            }
+
+            #trim-label {
+                margin-bottom: 2px;
+                font-size: 0.8rem;
+            }
+
+            input[type="range"] {
+                writing-mode: vertical-lr;
+                /* Explicitly restate for mobile */
+                direction: rtl;
+                height: 160px;
+                /* shorter than desktop to fit on phone */
+                width: 30px;
+            }
+
+            #trim-feedback {
+                margin-top: 2px;
+                font-size: 0.75rem;
+                width: 55px;
+            }
+
+            /* Speed indicator at bottom center */
+            #speed-container {
+                bottom: 24px;
+                padding: 6px 10px;
+            }
+
+            .speed-bar {
+                width: 12px;
+                height: 16px;
+            }
+
+            .speed-text {
+                font-size: 0.85rem;
+            }
+
+            /* Tutorial */
+            #tutorial {
+                width: 90vw;
+                top: 180px;
+                padding: 14px;
+            }
+
+            #tutorial ul {
+                font-size: 0.82rem;
+            }
         }
     </style>
 </head>
@@ -554,26 +643,14 @@
                 <canvas id="minimap-canvas" width="540" height="540"></canvas>
             </div>
 
-            <div id="rudder-buttons">
-                <div class="btn-rudder" id="btn-left">
-                    <svg viewBox="0 0 24 24" width="36" height="36" fill="#2c3e50">
-                        <path d="M15 19L8 12L15 5V19Z" />
-                    </svg>
-                </div>
-                <div class="btn-rudder" id="btn-right">
-                    <svg viewBox="0 0 24 24" width="36" height="36" fill="#2c3e50">
-                        <path d="M9 19L16 12L9 5V19Z" />
-                    </svg>
-                </div>
-            </div>
+
 
             <div id="tutorial">
                 <h3>Captain's Basics</h3>
                 <ul>
-                    <li>Use <b>A/D</b> or touch buttons to steer.</li>
-                    <li>Adjust <b>Trim slider</b> (or W/S) trim your sheets.</li>
-                    <li>Or use arrow keys.</li>
-                    <li>Avoid pointing straight into wind!</li>
+                    <li><b>Steer:</b> A/D keys, Left/Right arrows, or touch the left/right halves of the screen.</li>
+                    <li><b>Trim:</b> W/S keys, Up/Down arrows, or the Trim Slider.</li>
+                    <li>Avoid pointing straight into the wind!</li>
                     <li>Tack (zig-zag) to go upwind.</li>
                     <li>Keep your sails trimmed to catch the wind.</li>
                 </ul>
@@ -591,26 +668,12 @@
             </div>
         </div>
 
-        <!-- Portrait Rotate Overlay -->
-        <div id="rotate-overlay">
-            <div class="rotate-scene">
-                <div class="rotate-arrows">
-                    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <!-- Top-right curved arrow -->
-                        <path d="M72 18 A42 42 0 0 1 102 60" stroke="white" stroke-width="5" stroke-linecap="round"
-                            fill="none" opacity="0.9" />
-                        <polygon points="105,52 102,63 93,57" fill="white" opacity="0.9" />
-                        <!-- Bottom-left curved arrow -->
-                        <path d="M48 102 A42 42 0 0 1 18 60" stroke="white" stroke-width="5" stroke-linecap="round"
-                            fill="none" opacity="0.9" />
-                        <polygon points="15,68 18,57 27,63" fill="white" opacity="0.9" />
-                    </svg>
-                </div>
-                <div class="phone-body"></div>
-            </div>
-            <h2>Rotate to Play</h2>
-            <p>This game is best in landscape mode</p>
-            <button id="btn-start-portrait">START SAILING</button>
+        <!-- iOS: shown only if not in standalone mode -->
+        <div id="ios-add-tip"
+            style="display:none; margin-top:1rem; padding: 0.7rem 1.1rem; background:rgba(255,255,255,0.85); border: 2px solid #bdc3c7; color: #2c3e50; border-radius:8px; font-size:0.85rem; line-height:1.5; max-width:260px; text-align: left;">
+            💡 For true fullscreen on iPhone:<br>
+            Tap <strong>Share &#x2197;</strong> &rarr; <strong>Add to Home Screen</strong><br>
+            then open the app from your home screen.
         </div>
     </div>
 
@@ -740,56 +803,41 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // --- Orientation & Fullscreen ---
-        const rotateOverlay = document.getElementById('rotate-overlay');
+        // --- Fullscreen & iOS Standalone ---
         let gestureGranted = false;
 
+        function isIOS() {
+            return /iPhone|iPad|iPod/.test(navigator.userAgent) && !window.MSStream;
+        }
+
+        function isStandalone() {
+            return window.navigator.standalone === true ||
+                window.matchMedia('(display-mode: standalone)').matches;
+        }
+
         function isMobile() {
-            // Touch device with a mobile-sized screen — reliable cross-browser signal
             return navigator.maxTouchPoints > 0 && window.screen.width <= 1024;
         }
 
         function requestFS() {
-            if (!isMobile()) return; // Desktop: never fullscreen
+            if (isIOS()) return;   // iOS Safari: requestFullscreen simply doesn't exist
+            if (!isMobile()) return; // Desktop: skip fullscreen
             const el = document.documentElement;
             try {
                 if (el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' });
                 else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-            } catch (e) { /* Some browsers block fullscreen silently */ }
+            } catch (e) { }
         }
 
-        function isLandscape() {
-            return window.innerWidth > window.innerHeight;
+        // Show iOS "Add to Home Screen" tip if on iOS and NOT already standalone
+        if (isIOS() && !isStandalone()) {
+            document.getElementById('ios-add-tip').style.display = 'block';
         }
-
-        function checkOrientation() {
-            if (isLandscape()) {
-                rotateOverlay.classList.remove('visible');
-                if (gestureGranted) requestFS();
-            } else {
-                rotateOverlay.classList.add('visible');
-            }
-        }
-
-        window.addEventListener('orientationchange', () => setTimeout(checkOrientation, 150));
-        window.addEventListener('resize', checkOrientation);
-        checkOrientation(); // Run immediately on load
 
         document.getElementById('btn-start').addEventListener('click', () => {
             gestureGranted = true;
             requestFS();
             startGame();
-        });
-
-        document.getElementById('btn-start-portrait').addEventListener('click', () => {
-            gestureGranted = true;
-            // If they somehow tap this in landscape, start immediately
-            if (isLandscape()) {
-                requestFS();
-                rotateOverlay.classList.remove('visible');
-                // Don't auto-start; let the user see the landscape start screen
-            }
-            // Otherwise just bank the gesture — the orientationchange handler will fire fullscreen
         });
 
         document.getElementById('btn-close-tut').addEventListener('click', () => {
@@ -841,28 +889,89 @@
             }
         }, { passive: false });
 
-        // Safari Pinch-to-Zoom hard overrides
-        window.addEventListener('gesturestart', function (e) { e.preventDefault(); });
-        window.addEventListener('gesturechange', function (e) { e.preventDefault(); });
-        window.addEventListener('gestureend', function (e) { e.preventDefault(); });
+        // Pinch-to-Zoom (two-finger touch)
+        let pinchStartDist = null;
+        let pinchStartZoom = 1.0;
+
+        function getTouchDist(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                pinchStartDist = getTouchDist(e.touches);
+                pinchStartZoom = state.cameraZoom;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2 && pinchStartDist !== null) {
+                e.preventDefault();
+                const dist = getTouchDist(e.touches);
+                const scale = dist / pinchStartDist;
+                state.cameraZoom = Math.max(0.2, Math.min(3.0, pinchStartZoom * scale));
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) pinchStartDist = null;
+        });
+
+        // Suppress native browser pinch-zoom so it doesn't fight our game zoom
+        window.addEventListener('gesturestart', (e) => e.preventDefault());
+        window.addEventListener('gesturechange', (e) => e.preventDefault());
+        window.addEventListener('gestureend', (e) => e.preventDefault());
 
         trimSlider.addEventListener('input', (e) => {
             boat.trim = parseInt(e.target.value);
         });
 
-        // Touch buttons
-        const btnLeft = document.getElementById('btn-left');
-        const btnRight = document.getElementById('btn-right');
+        // Canvas Touch Controls
+        // Steering: Touch left half of screen = turn left, touch right half = turn right
+        let steerTouchId = null;
 
-        const attachTouch = (el, key) => {
-            el.addEventListener('mousedown', () => state.keys[key] = true);
-            el.addEventListener('mouseup', () => state.keys[key] = false);
-            el.addEventListener('mouseleave', () => state.keys[key] = false);
-            el.addEventListener('touchstart', (e) => { e.preventDefault(); state.keys[key] = true; });
-            el.addEventListener('touchend', (e) => { e.preventDefault(); state.keys[key] = false; });
-        };
-        attachTouch(btnLeft, 'left');
-        attachTouch(btnRight, 'right');
+        function updateSteering(x) {
+            if (x < window.innerWidth / 2) {
+                state.keys.left = true;
+                state.keys.right = false;
+            } else {
+                state.keys.right = true;
+                state.keys.left = false;
+            }
+        }
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1 && steerTouchId === null) {
+                const touch = e.touches[0];
+                steerTouchId = touch.identifier;
+
+                updateSteering(touch.clientX);
+            }
+        }, { passive: true });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (steerTouchId === null) return;
+            const touch = Array.from(e.changedTouches).find(t => t.identifier === steerTouchId);
+            if (!touch) return;
+
+            // Continually update steering based on which side the finger crosses into
+            updateSteering(touch.clientX);
+        }, { passive: true });
+
+        function endTouch(e) {
+            const touch = Array.from(e.changedTouches).find(t => t.identifier === steerTouchId);
+            if (touch) {
+                steerTouchId = null;
+                state.keys.left = false;
+                state.keys.right = false;
+            }
+        }
+
+        canvas.addEventListener('touchend', endTouch);
+        canvas.addEventListener('touchcancel', endTouch);
 
         // --- HELPER MATH ---
         function angleDiff(a, b) {
