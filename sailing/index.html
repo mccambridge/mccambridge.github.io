@@ -783,24 +783,32 @@
                 driveForce = boat.baseDrive * trueWindFactor * eff * basePower;
             }
 
-            // In-irons: backward push + rotation, but ONLY when moving slowly.
-            // If tacking fast, momentum carries through — no back-push.
+            // In-irons: Head to wind
             if (inNoGo) {
-                let absFwdSpeed = Math.abs(fwdSpeed);
-                // Backward push only below threshold speed
-                if (absFwdSpeed < 40) {
-                    let speedWeight = Math.max(0, 1.0 - absFwdSpeed / 40.0);
-                    let trueWindFactor = state.trueWind.spd / 200.0;
-                    // Force up 3x (from 0.15 to 0.45) to overcome the new higher dragFwd.
-                    let backForce = boat.baseDrive * 0.45 * speedWeight * trueWindFactor;
-                    boat.vx -= (backForce / boat.mass) * Math.cos(boat.heading) * dt;
-                    boat.vy -= (backForce / boat.mass) * Math.sin(boat.heading) * dt;
-                }
+                let trueWindFactor = state.trueWind.spd / 200.0;
+                let trueRelWindSign = Math.sign(angleDiff(state.trueWind.dir, boat.heading));
 
-                // Wind catches one side of rig, slowly pushes bow OFF the wind (falling off)
-                // relWind >= 0 (wind from port) -> starboard turn (+1.0) to fall off
-                let spinDir = (relWind >= 0) ? 1.0 : -1.0;
-                let autoSpin = spinDir * boat.turnRate * 0.4 * dt;
+                // Aerodynamic drag on the rig. 
+                // We scale it back as speed gets higher so you don't hit a wall while tacking,
+                // but it always eventually stops you if you're stuck in irons.
+                let speedBrake = Math.max(0, 1.0 - (fwdSpeed / 80.0));
+                let backForce = boat.baseDrive * (0.1 + 0.35 * speedBrake) * trueWindFactor;
+                boat.vx -= (backForce / boat.mass) * Math.cos(boat.heading) * dt;
+                boat.vy -= (backForce / boat.mass) * Math.sin(boat.heading) * dt;
+
+                // Weathervaning:
+                // If you are tacking with momentum (fwdSpeed > 20), don't interfere.
+                // If you stall (fwdSpeed < 20), the wind blows the bow OFF the wind.
+                // If you are pointed straight into the eye, you drift backwards straight.
+                let trueRelWindAbs = Math.abs(angleDiff(state.trueWind.dir, boat.heading));
+                let centerDeadband = Math.max(0, 1.0 - trueRelWindAbs / (Math.PI * 0.08));
+
+                let spinDir = (trueRelWindSign >= 0) ? 1.0 : -1.0; // Blow OFF wind
+
+                // The slower you are, the more the wind grabs the bow. Caps at 1.0 when fwdSpeed <= 0.
+                let stallGrip = Math.max(0, Math.min(1.0, 1.0 - (fwdSpeed / 20.0)));
+
+                let autoSpin = spinDir * boat.turnRate * 0.4 * stallGrip * (1.0 - centerDeadband) * dt;
 
                 // If drifting backwards and user is actively steering, let the rudder win over the wind's auto-spin
                 if (fwdSpeed < -2 && boat.rudder !== 0) {
@@ -810,9 +818,18 @@
                 boat.heading += autoSpin;
             }
 
-            // Turning: speed-dependent, sign of fwdSpeed reverses rudder when going backward
-            let turnEffectiveness = Math.min(1.0, Math.abs(fwdSpeed) / 60.0) * Math.sign(fwdSpeed);
-            if (Math.abs(fwdSpeed) < 2) turnEffectiveness *= 0.1; // very sluggish near zero
+            // Keel Stall and Steering Physics
+            let turnEffectiveness = 0;
+            if (fwdSpeed <= -2) {
+                // Reverse helm - strong bite out of irons
+                turnEffectiveness = Math.max(-1.0, fwdSpeed / 40.0);
+            } else if (fwdSpeed >= 20) {
+                // Forward steerage - needs 0.5 knots to bite fully, ramps up nicely
+                turnEffectiveness = Math.min(1.0, ((fwdSpeed - 20) / 40.0) + 0.2);
+            } else if (fwdSpeed > 0) {
+                // Stalled keel (0 to 20 px/s): Not enough water flow over foils. No steerage way!
+                turnEffectiveness = (fwdSpeed / 20.0) * 0.15; // 0 to 15% turning power max
+            }
 
             // Calculate base rudder turning
             let rudderTurn = boat.rudder * boat.turnRate * turnEffectiveness * dt;
@@ -825,12 +842,13 @@
                 let overTrimAmount = (bestTrim - boat.trim) / 100.0; // 0.0 to 1.0
                 let speedFactor = Math.min(1.0, Math.abs(fwdSpeed) / 40.0);
 
-                // relWind > 0 (wind on port). To turn windward (port), we need a negative rotation.
-                // We use sign directly here since it applies the negative direction properly.
+                // Use True Wind to determine side, because Apparent Wind sign flips rapidly when pinching upwind
+                let trueRelWindSign = Math.sign(angleDiff(state.trueWind.dir, boat.heading));
+
                 // We scale it down as we go upwind so it doesn't flutter at the no-go threshold,
                 // but keep it full strength (3.5 * dt) on a broad reach to overpower the rudder.
                 let upwindFade = (absRelWind > Math.PI / 2) ? Math.max(0.15, 1.0 - (absRelWind - Math.PI / 2) / (Math.PI / 2)) : 1.0;
-                overTrimWeatherHelm = -Math.sign(relWind) * overTrimAmount * speedFactor * upwindFade * 3.5 * dt;
+                overTrimWeatherHelm = -trueRelWindSign * overTrimAmount * speedFactor * upwindFade * 3.5 * dt;
             }
 
             boat.heading += rudderTurn + overTrimWeatherHelm;
