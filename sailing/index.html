@@ -700,6 +700,7 @@
                     <li>Avoid pointing straight into the wind!</li>
                     <li>Tack (zig-zag) to go upwind.</li>
                     <li>Keep your sails trimmed to go fast.</li>
+                    <li>Watch out for wind shadows.</li>
                 </ul>
                 <button id="btn-close-tut">Got It</button>
             </div>
@@ -797,6 +798,35 @@
         let avgSnapGap = 100;
 
         let width, height;
+
+        // --- PALETTES & UTILS ---
+        // Okabe-Ito Colorblind-Friendly Palette
+        const BOAT_PALETTE = [
+            '#E69F00', // Orange
+            '#56B4E9', // Sky Blue
+            '#009E73', // Bluish Green
+            '#F0E442', // Yellow
+            '#0072B2', // Blue
+            '#D55E00', // Vermilion
+            '#CC79A7', // Reddish Purple
+            '#999999'  // Grey
+        ];
+
+        function getBoatColors(id) {
+            let hash = 0;
+            for (let i = 0; i < id.length; i++) hash = Math.imul(31, hash) + id.charCodeAt(i) | 0;
+            hash = Math.abs(hash);
+
+            // Generate a combination of 2 colors (allows solid colors if idx1 == idx2 based on hash)
+            let idx1 = hash % BOAT_PALETTE.length;
+            let idx2 = (hash >> 3) % BOAT_PALETTE.length;
+
+            // Force the player to always have the exact same colors on reloading
+            return {
+                port: BOAT_PALETTE[idx1],
+                stbd: BOAT_PALETTE[idx2]
+            };
+        }
 
         // --- INITIALIZATION ---
         function resize() {
@@ -1183,7 +1213,7 @@
                         trim: sBoat.trim / 1000,
                         inIrons: false, isPlaning: false, stuckTimer: 0,
                         sailAngle: 0, billowSide: 1, lastDolphinTick: 0,
-                        color: sBoat.id === myBoatId ? '#2ecc71' : '#e74c3c', // Red if enemy!
+                        colors: getBoatColors(sBoat.id),
                         width: 22, length: 50
                     };
                     netBoats.set(sBoat.id, b);
@@ -1288,8 +1318,29 @@
             ctx.ellipse(5, 5, b.length / 2, b.width / 2 + 2, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            // Hull
-            ctx.fillStyle = b.color;
+            // Hull (Split into Port and Starboard coloring)
+            const portColor = b.colors ? b.colors.port : (b.color || '#999999');
+            const stbdColor = b.colors ? b.colors.stbd : (b.color || '#999999');
+
+            // Left Side (Port, y < 0 in local space)
+            ctx.fillStyle = portColor;
+            ctx.beginPath();
+            ctx.moveTo(b.length / 2, 0); // Bow
+            ctx.quadraticCurveTo(0, -b.width / 2, -b.length / 2, -b.width / 2 + 2); // Stern left
+            ctx.lineTo(-b.length / 2, 0); // Center stern
+            ctx.closePath();
+            ctx.fill();
+
+            // Right Side (Starboard, y > 0 in local space)
+            ctx.fillStyle = stbdColor;
+            ctx.beginPath();
+            ctx.moveTo(b.length / 2, 0); // Bow
+            ctx.quadraticCurveTo(0, b.width / 2, -b.length / 2, b.width / 2 - 2); // Stern right
+            ctx.lineTo(-b.length / 2, 0); // Center stern
+            ctx.closePath();
+            ctx.fill();
+
+            // Hull Outline
             ctx.strokeStyle = '#2c3e50';
             ctx.lineWidth = 2;
             ctx.beginPath();
@@ -1297,7 +1348,6 @@
             ctx.quadraticCurveTo(0, b.width / 2, -b.length / 2, b.width / 2 - 2); // Stern right
             ctx.lineTo(-b.length / 2, -b.width / 2 + 2); // Stern left
             ctx.quadraticCurveTo(0, -b.width / 2, b.length / 2, 0); // Back to bow
-            ctx.fill();
             ctx.stroke();
 
             // Mast
@@ -1533,16 +1583,31 @@
 
             // Boats (GPS-style triangles)
             for (let b of netBoats.values()) {
-                mCtx.fillStyle = b.id === myBoatId ? '#2ecc71' : '#ff4757';
                 mCtx.save();
                 mCtx.translate(b.x, b.y);
                 mCtx.rotate(b.heading);
+
+                const portColor = b.colors ? b.colors.port : (b.id === myBoatId ? '#2ecc71' : '#ff4757');
+                const stbdColor = b.colors ? b.colors.stbd : (b.id === myBoatId ? '#2ecc71' : '#ff4757');
+
+                // Port Side
+                mCtx.fillStyle = portColor;
                 mCtx.beginPath();
-                mCtx.moveTo(24 / scale, 0); // Bow (front apex)
-                mCtx.lineTo(-15 / scale, 12 / scale); // Stern (port corner)
-                mCtx.lineTo(-15 / scale, -12 / scale); // Stern (starboard corner)
+                mCtx.moveTo(24 / scale, 0); // Bow
+                mCtx.lineTo(-15 / scale, -12 / scale); // Stern port corner
+                mCtx.lineTo(-15 / scale, 0); // Stern center
                 mCtx.closePath();
                 mCtx.fill();
+
+                // Starboard Side
+                mCtx.fillStyle = stbdColor;
+                mCtx.beginPath();
+                mCtx.moveTo(24 / scale, 0); // Bow
+                mCtx.lineTo(-15 / scale, 12 / scale); // Stern starboard corner
+                mCtx.lineTo(-15 / scale, 0); // Stern center
+                mCtx.closePath();
+                mCtx.fill();
+
                 mCtx.restore();
             }
 
