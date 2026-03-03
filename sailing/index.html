@@ -1744,9 +1744,15 @@
                     if (timeOffset === null) {
                         timeOffset = localTime - serverTime;
                     } else {
-                        // Gently drift the offset toward reality to account for long-term physics clock vs CPU clock skew
                         let currentOffset = localTime - serverTime;
-                        timeOffset += (currentOffset - timeOffset) * 0.05;
+                        // If we drift wildly out of sync (tab paused, huge lag spike), do a hard reset
+                        if (Math.abs(currentOffset - timeOffset) > 500) {
+                            timeOffset = currentOffset;
+                        } else {
+                            // Micro-drift (0.001) protects against long-term clock skew 
+                            // without injecting network packet jitter into the visual timeline
+                            timeOffset += (currentOffset - timeOffset) * 0.001;
+                        }
                     }
 
                     snapshots.push({
@@ -1754,8 +1760,8 @@
                         data: msg.data
                     });
 
-                    // Keep buffer small (approx ~500ms at 10Hz)
-                    if (snapshots.length > 5) snapshots.shift();
+                    // Keep buffer small (approx ~800ms at 10Hz)
+                    if (snapshots.length > 8) snapshots.shift();
 
                     // Trigger finish visuals for local player
                     if (myBoatId) {
@@ -2166,9 +2172,10 @@
 
             if (snapshots.length < 2) return;
 
-            // Assuming 100ms broadcasting (10Hz) and we want ~120ms rendering delay 
+            // Assuming 100ms broadcasting (10Hz) and we want ~200ms rendering delay 
             // so we always have a past and future snapshot to lerp between
-            const renderTime = performance.now() - 120;
+            // This 200ms cushion absorbs ~100ms of internet latency variance without starving
+            const renderTime = performance.now() - 200;
 
             // Find bounding snapshots
             let snap0 = snapshots[0];
