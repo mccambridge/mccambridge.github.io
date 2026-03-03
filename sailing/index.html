@@ -243,6 +243,52 @@
             pointer-events: auto;
         }
 
+        .audio-control-wrapper {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .audio-popup {
+            position: absolute;
+            top: 55px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            padding: 15px 10px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            border: 2px solid #ccc;
+        }
+
+        .audio-popup input[type="range"] {
+            height: 100px;
+        }
+
+        .audio-mute-toggle {
+            padding: 6px 12px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.85rem;
+            width: 100%;
+        }
+
+        .audio-mute-toggle.active {
+            background: #34495e;
+            text-decoration: line-through;
+            opacity: 0.8;
+            color: #ecf0f1;
+        }
+
         .audio-btn {
             background: var(--ui-bg);
             border: 2px solid #ccc;
@@ -264,10 +310,25 @@
 
         .audio-btn.muted {
             opacity: 0.5;
-            text-decoration: line-through;
-            background: #e74c3c;
+            background: #7f8c8d;
+            /* Muted gray background */
             color: #fff;
-            border-color: #c0392b;
+            border-color: #34495e;
+            /* Darker gray stroke */
+            position: relative;
+        }
+
+        .audio-btn.muted::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 10%;
+            width: 80%;
+            height: 3px;
+            background-color: #34495e;
+            /* Match border color */
+            transform: translateY(-50%) rotate(-45deg);
+            z-index: 2;
         }
 
         #scoreboard-ok {
@@ -588,6 +649,13 @@
 
         @media (max-width: 1024px) and (orientation: landscape) {
 
+            /* Audio Controls */
+            #audio-controls {
+                top: 8px;
+                right: auto;
+                left: 75px;
+            }
+
             /* Wind compass: compact, tight to top-left */
             #wind-compass {
                 width: 56px;
@@ -673,6 +741,13 @@
 
         /* ---- Portrait Mobile Optimisations ---- */
         @media (max-width: 1024px) and (orientation: portrait) {
+
+            /* Audio Controls */
+            #audio-controls {
+                top: 12px;
+                right: auto;
+                left: 85px;
+            }
 
             /* Top Row */
             #wind-compass {
@@ -780,8 +855,20 @@
 
         <div id="hud" class="hidden">
             <div id="audio-controls">
-                <button id="btn-music" class="audio-btn" title="Toggle Music">🎵</button>
-                <button id="btn-mute" class="audio-btn" title="Toggle All Sound">🔊</button>
+                <div class="audio-control-wrapper">
+                    <button id="btn-music" class="audio-btn" title="Toggle Music">🎵</button>
+                    <div id="popup-music" class="audio-popup hidden">
+                        <input type="range" id="slider-music" min="0" max="100" value="100">
+                        <button id="btn-music-mute" class="audio-mute-toggle">Mute</button>
+                    </div>
+                </div>
+                <div class="audio-control-wrapper">
+                    <button id="btn-mute" class="audio-btn" title="Toggle All Sound">🔊</button>
+                    <div id="popup-sfx" class="audio-popup hidden">
+                        <input type="range" id="slider-sfx" min="0" max="100" value="100">
+                        <button id="btn-sfx-mute" class="audio-mute-toggle">Mute</button>
+                    </div>
+                </div>
             </div>
 
             <button id="scoreboard-ok" class="hidden">OK</button>
@@ -941,10 +1028,18 @@
 
         const btnMute = document.getElementById('btn-mute');
         const btnMusic = document.getElementById('btn-music');
+        const popupSfx = document.getElementById('popup-sfx');
+        const popupMusic = document.getElementById('popup-music');
+        const sliderSfx = document.getElementById('slider-sfx');
+        const sliderMusic = document.getElementById('slider-music');
+        const btnSfxMute = document.getElementById('btn-sfx-mute');
+        const btnMusicMute = document.getElementById('btn-music-mute');
         const scoreboardOk = document.getElementById('scoreboard-ok');
 
         let isMuted = false;
         let isMusicMuted = false;
+        let sfxVolume = 1.0;
+        let musicVolume = 1.0;
         let scoreboardDismissed = false;
 
         const sfxGain = audioCtx.createGain();
@@ -956,21 +1051,63 @@
         musicGain.gain.value = 1.0;
 
         function updateMuteState() {
-            sfxGain.gain.value = isMuted ? 0 : 1.0;
-            musicGain.gain.value = (isMuted || isMusicMuted) ? 0 : 1.0;
-        }
+            const now = audioCtx.currentTime;
+            sfxGain.gain.setTargetAtTime(isMuted ? 0 : sfxVolume, now, 0.05);
+            musicGain.gain.setTargetAtTime((isMuted || isMusicMuted) ? 0 : musicVolume, now, 0.05);
 
-        btnMute.addEventListener('click', () => {
-            isMuted = !isMuted;
             btnMute.classList.toggle('muted', isMuted);
             btnMute.innerText = isMuted ? '🔇' : '🔊';
+            btnSfxMute.classList.toggle('active', isMuted);
+            btnSfxMute.innerText = isMuted ? 'Unmute' : 'Mute';
+
+            btnMusic.classList.toggle('muted', isMusicMuted);
+            btnMusicMute.classList.toggle('active', isMusicMuted);
+            btnMusicMute.innerText = isMusicMuted ? 'Unmute' : 'Mute';
+        }
+
+        btnMute.addEventListener('click', (e) => {
+            e.stopPropagation();
+            popupSfx.classList.toggle('hidden');
+            popupMusic.classList.add('hidden');
+        });
+
+        btnMusic.addEventListener('click', (e) => {
+            e.stopPropagation();
+            popupMusic.classList.toggle('hidden');
+            popupSfx.classList.add('hidden');
+        });
+
+        btnSfxMute.addEventListener('click', (e) => {
+            e.stopPropagation();
+            isMuted = !isMuted;
+            updateMuteState();
+            popupSfx.classList.add('hidden');
+        });
+
+        btnMusicMute.addEventListener('click', (e) => {
+            e.stopPropagation();
+            isMusicMuted = !isMusicMuted;
+            updateMuteState();
+            popupMusic.classList.add('hidden');
+        });
+
+        sliderSfx.addEventListener('input', (e) => {
+            sfxVolume = parseInt(e.target.value) / 100.0;
+            if (isMuted && sfxVolume > 0) isMuted = false;
             updateMuteState();
         });
 
-        btnMusic.addEventListener('click', () => {
-            isMusicMuted = !isMusicMuted;
-            btnMusic.classList.toggle('muted', isMusicMuted);
+        sliderMusic.addEventListener('input', (e) => {
+            musicVolume = parseInt(e.target.value) / 100.0;
+            if (isMusicMuted && musicVolume > 0) isMusicMuted = false;
             updateMuteState();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.audio-control-wrapper')) {
+                popupSfx.classList.add('hidden');
+                popupMusic.classList.add('hidden');
+            }
         });
 
         const btnRaceAgain = document.getElementById('btn-race-again');
@@ -1233,7 +1370,7 @@
 
             oceanNoiseSource.connect(lpf);
             lpf.connect(gain);
-            gain.connect(audioCtx.destination);
+            gain.connect(sfxGain);
 
             oceanNoiseSource.start();
             lfo.start();
