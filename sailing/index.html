@@ -968,7 +968,7 @@
         <div id="hud" class="hidden">
             <!-- Exit Button -->
             <div id="exit-btn-wrapper">
-                <button id="btn-hud-exit" class="audio-btn">✖</button>
+                <button id="btn-hud-exit" class="audio-btn" style="background: rgba(255,255,255,0.75);">✖</button>
             </div>
 
             <div id="audio-controls">
@@ -1059,6 +1059,10 @@
                 <div id="ready-indicator"
                     style="font-size: 2.5rem; color: #aed581; font-weight: bold; visibility: hidden; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">
                     Ready!</div>
+                <div id="lobby-warning"
+                    style="color: #ffb74d; font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); display: none;">
+                    Two or more sailors required to race
+                </div>
                 <button class="btn-ready" id="btn-ready">I'm ready to race</button>
                 <div id="lobby-status">0 / 0 ready</div>
             </div>
@@ -2085,6 +2089,21 @@
                                 if (playersById[id].ready) readyCount++;
                             }
                             lobbyStatus.innerText = `${readyCount} / ${totalPlayers} ready`;
+
+                            const lobbyWarning = document.getElementById('lobby-warning');
+                            if (lobbyWarning) {
+                                if (totalPlayers < 2) {
+                                    lobbyWarning.style.display = 'block';
+                                    btnReady.disabled = true;
+                                    btnReady.style.opacity = '0.5';
+                                    btnReady.style.pointerEvents = 'none';
+                                } else {
+                                    lobbyWarning.style.display = 'none';
+                                    btnReady.disabled = false;
+                                    btnReady.style.opacity = '1';
+                                    btnReady.style.pointerEvents = 'auto';
+                                }
+                            }
                         } else if (rState === 'COUNTDOWN') {
                             let amIReady = false;
                             if (myBoatId && playersById[myBoatId] && playersById[myBoatId].ready) amIReady = true;
