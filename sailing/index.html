@@ -846,6 +846,80 @@
                 font-size: 0.82rem;
             }
         }
+
+        #exit-btn-wrapper {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 50;
+        }
+
+        /* Mobile specific push */
+        @media (max-width: 768px) {
+            #exit-btn-wrapper {
+                top: 12px;
+                right: 12px;
+            }
+        }
+
+        #exit-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(32, 60, 80, 0.75);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        #exit-modal .modal-content {
+            background: #ecf0f1;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 320px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            border: 4px solid #bdc3c7;
+        }
+
+        #exit-modal h2 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 1.8rem;
+        }
+
+        #exit-modal p {
+            color: #34495e;
+            margin-bottom: 25px;
+            font-size: 1.1rem;
+        }
+
+        #exit-modal .modal-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        #btn-confirm-exit {
+            background: #e74c3c;
+            color: white;
+            border-color: #c0392b;
+        }
+
+        #btn-confirm-exit:active {
+            background: #c0392b;
+        }
+
+        #btn-cancel-exit {
+            background: #95a5a6;
+            color: white;
+            border-color: #7f8c8d;
+        }
+
+        #btn-cancel-exit:active {
+            background: #7f8c8d;
+        }
     </style>
 </head>
 
@@ -854,6 +928,12 @@
         <canvas id="canvas"></canvas>
 
         <div id="hud" class="hidden">
+            <!-- Exit Button -->
+            <div id="exit-btn-wrapper">
+                <button id="btn-hud-exit" class="audio-btn"
+                    style="background:#e74c3c; border-color:#c0392b; color:white;">✖</button>
+            </div>
+
             <div id="audio-controls">
                 <div class="audio-control-wrapper">
                     <button id="btn-music" class="audio-btn" title="Toggle Music">🎵</button>
@@ -1005,6 +1085,7 @@
         };
 
         let dolphins = [];
+        let wakeParticles = [];
 
         // --- MULTIPLAYER STATE ---
         let socket = null;
@@ -1320,17 +1401,22 @@
         let oceanNoiseSource = null;
         let seagullInterval = null;
 
+        let windFilter = null;
+        let windGainNode = null;
+        let planingFilter = null;
+        let planingGainNode = null;
+        let lastHullSlapTime = 0;
+
         function startOceanAmbience() {
             if (oceanAmbiencePlaying) return;
             if (audioCtx.state === 'suspended') audioCtx.resume();
             oceanAmbiencePlaying = true;
 
-            // Create Pink/White noise buffer for ocean
+            // Create Pink/White noise buffer for ocean/wind
             const bufferSize = audioCtx.sampleRate * 5;
             const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
             const data = buffer.getChannelData(0);
 
-            // Simple pink-ish noise approx
             let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
             for (let i = 0; i < bufferSize; i++) {
                 let white = Math.random() * 2 - 1;
@@ -1349,39 +1435,41 @@
             oceanNoiseSource.buffer = buffer;
             oceanNoiseSource.loop = true;
 
-            // Filter to sweep wave sounds
-            const lpf = audioCtx.createBiquadFilter();
-            lpf.type = 'lowpass';
-            lpf.frequency.value = 400; // base freq
+            // --- Wind Noise (Dynamic) ---
+            windFilter = audioCtx.createBiquadFilter();
+            windFilter.type = 'lowpass';
+            windFilter.frequency.value = 400; // Floor freq (slow speeds)
+            windFilter.Q.value = 0.5;
 
-            // LFO to modulate lowpass frequency for rhythmic "wave crashes"
-            const lfo = audioCtx.createOscillator();
-            lfo.type = 'sine';
-            lfo.frequency.value = 0.1; // 10 seconds per wave cycle
+            windGainNode = audioCtx.createGain();
+            windGainNode.gain.value = 0; // Starts silent until boat moves
 
-            const lfoGain = audioCtx.createGain();
-            lfoGain.gain.value = 300; // Modulate by 300Hz
+            // --- Planing Whoosh (Dynamic) ---
+            planingFilter = audioCtx.createBiquadFilter();
+            planingFilter.type = 'highpass';
+            planingFilter.frequency.value = 1200; // High hissing whoosh
 
-            lfo.connect(lfoGain);
-            lfoGain.connect(lpf.frequency);
+            planingGainNode = audioCtx.createGain();
+            planingGainNode.gain.value = 0; // Starts silent
 
-            const gain = audioCtx.createGain();
-            gain.gain.value = 0.15; // Low volume for ambience
+            // Routing
+            oceanNoiseSource.connect(windFilter);
+            windFilter.connect(windGainNode);
+            windGainNode.connect(sfxGain);
 
-            oceanNoiseSource.connect(lpf);
-            lpf.connect(gain);
-            gain.connect(sfxGain);
+            oceanNoiseSource.connect(planingFilter);
+            planingFilter.connect(planingGainNode);
+            planingGainNode.connect(sfxGain);
 
             oceanNoiseSource.start();
-            lfo.start();
 
-            // Random seagulls
+            // Random seagulls (Less often: 15 to 45 seconds)
             function scheduleSeagull() {
                 if (!oceanAmbiencePlaying) return;
                 playSeagull();
-                seagullInterval = setTimeout(scheduleSeagull, 5000 + Math.random() * 15000); // 5 to 20 seconds between squawks
+                seagullInterval = setTimeout(scheduleSeagull, 15000 + Math.random() * 30000);
             }
-            seagullInterval = setTimeout(scheduleSeagull, 2000);
+            seagullInterval = setTimeout(scheduleSeagull, 5000);
         }
 
         function stopOceanAmbience() {
@@ -1395,39 +1483,120 @@
                 clearTimeout(seagullInterval);
                 seagullInterval = null;
             }
+            windFilter = null;
+            windGainNode = null;
+            planingFilter = null;
+            planingGainNode = null;
+        }
+
+        function playHullSlap(speedFactor) {
+            if (audioCtx.state === 'suspended') return;
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const now = audioCtx.currentTime;
+
+            // Random noise burst for splash
+            const bufferSize = audioCtx.sampleRate * 0.1; // 100ms
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * 0.5;
+            }
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+
+            // Bandpass based on speed. Slower = deeper slap. Faster = higher splash
+            const bpf = audioCtx.createBiquadFilter();
+            bpf.type = 'bandpass';
+            bpf.frequency.value = 300 + (speedFactor * 600) + (Math.random() * 200);
+            bpf.Q.value = 1.0;
+
+            // Sharp attack, fast decay
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.08 + (speedFactor * 0.05), now + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+            noise.connect(bpf);
+            bpf.connect(gain);
+            gain.connect(sfxGain);
+
+            noise.start(now);
+            noise.stop(now + 0.1);
         }
 
         function playSeagull() {
             if (audioCtx.state === 'suspended') return;
             const now = audioCtx.currentTime;
 
-            // A seagull cry usually has 2-4 bursts
-            const bursts = 2 + Math.floor(Math.random() * 3);
-            const basePitch = 600 + Math.random() * 200;
+            // 0 = Long Wail, 1 = Laughing Gull, 2 = Short Yelp
+            const callType = Math.floor(Math.random() * 3);
+
+            let bursts, basePitch, durationBase, spacing;
+
+            if (callType === 0) {
+                // Type 0: The "Long Wail"
+                bursts = 1 + Math.floor(Math.random() * 2);
+                basePitch = 1200 + Math.random() * 400; // 1.2k - 1.6k
+                durationBase = 0.5; // Long arching notes
+                spacing = 0.7;
+            } else if (callType === 1) {
+                // Type 1: The "Laughing Gull"
+                bursts = 6 + Math.floor(Math.random() * 4);
+                basePitch = 2500 + Math.random() * 500; // High pitch
+                durationBase = 0.12; // Short staccato
+                spacing = 0.16;
+            } else {
+                // Type 2: The "Short Yelp"
+                bursts = 3 + Math.floor(Math.random() * 3);
+                basePitch = 2000 + Math.random() * 500;
+                durationBase = 0.25;
+                spacing = 0.35;
+            }
 
             for (let i = 0; i < bursts; i++) {
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
 
-                const startTime = now + (i * 0.25) + Math.random() * 0.05;
-                const duration = 0.2;
+                const startTime = now + (i * spacing) + Math.random() * 0.05;
+                const duration = durationBase + (Math.random() * 0.05 - 0.025);
 
                 osc.type = 'sawtooth';
 
-                // Pitch bend down heavily
-                osc.frequency.setValueAtTime(basePitch + 200, startTime);
-                osc.frequency.exponentialRampToValueAtTime(basePitch - 200, startTime + duration);
+                if (callType === 0) {
+                    osc.frequency.setValueAtTime(basePitch, startTime);
+                    osc.frequency.exponentialRampToValueAtTime(basePitch * 1.5, startTime + (duration * 0.3));
+                    osc.frequency.linearRampToValueAtTime(basePitch * 1.6, startTime + (duration * 0.7));
+                    osc.frequency.exponentialRampToValueAtTime(basePitch * 0.9, startTime + duration);
+                } else if (callType === 1) {
+                    osc.frequency.setValueAtTime(basePitch, startTime);
+                    osc.frequency.exponentialRampToValueAtTime(basePitch * 0.6, startTime + duration);
+                } else {
+                    osc.frequency.setValueAtTime(basePitch, startTime);
+                    osc.frequency.linearRampToValueAtTime(basePitch * 0.8, startTime + duration);
+                }
 
-                // Sharp amplitude envelope
                 gain.gain.setValueAtTime(0, startTime);
-                gain.gain.linearRampToValueAtTime(0.08, startTime + 0.02);
-                gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+                if (callType === 1) {
+                    gain.gain.linearRampToValueAtTime(0.06, startTime + 0.02);
+                } else {
+                    gain.gain.linearRampToValueAtTime(0.06, startTime + (duration * 0.2));
+                }
 
-                // Bandpass filter to make it sound far away and squawky
+                if (callType === 0) {
+                    gain.gain.linearRampToValueAtTime(0.06, startTime + (duration * 0.8));
+                    gain.gain.linearRampToValueAtTime(0.001, startTime + duration);
+                } else {
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+                }
+
                 const bpf = audioCtx.createBiquadFilter();
                 bpf.type = 'bandpass';
-                bpf.frequency.value = 800;
-                bpf.Q.value = 2;
+                bpf.Q.value = 5.0;
+
+                bpf.frequency.setValueAtTime(basePitch * 1.5, startTime);
+                if (callType === 0) bpf.frequency.linearRampToValueAtTime(basePitch * 2.0, startTime + (duration * 0.5));
+                bpf.frequency.linearRampToValueAtTime(basePitch, startTime + duration);
 
                 osc.connect(gain);
                 gain.connect(bpf);
@@ -1435,6 +1604,33 @@
 
                 osc.start(startTime);
                 osc.stop(startTime + duration);
+
+                const bufferSize = Math.floor(audioCtx.sampleRate * duration);
+                if (bufferSize > 0) {
+                    const noiseBuf = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                    const data = noiseBuf.getChannelData(0);
+                    for (let j = 0; j < bufferSize; j++) {
+                        data[j] = (Math.random() * 2 - 1) * 0.5;
+                    }
+                    const noiseOsc = audioCtx.createBufferSource();
+                    noiseOsc.buffer = noiseBuf;
+
+                    const noiseFilter = audioCtx.createBiquadFilter();
+                    noiseFilter.type = 'highpass';
+                    noiseFilter.frequency.value = 2500;
+
+                    const noiseGain = audioCtx.createGain();
+                    noiseGain.gain.setValueAtTime(0, startTime);
+                    noiseGain.gain.linearRampToValueAtTime(0.015, startTime + (duration * 0.1));
+                    noiseGain.gain.linearRampToValueAtTime(0.005, startTime + duration);
+
+                    noiseOsc.connect(noiseFilter);
+                    noiseFilter.connect(noiseGain);
+                    noiseGain.connect(sfxGain);
+
+                    noiseOsc.start(startTime);
+                    noiseOsc.stop(startTime + duration);
+                }
             }
         }
 
@@ -1712,6 +1908,18 @@
                         hornPlayed = false;
                         scoreboardDismissed = false;
 
+                        lastCountdownTick = null;
+                        lastMarkTick = null;
+                        lastLapTick = null;
+                        lastRaceWarningSec = -1;
+
+                        // Force-hide stale race completion overlays in case this player 
+                        // was still looking at them when a new race started
+                        document.getElementById('game-over-screen').classList.add('hidden');
+                        document.getElementById('scoreboard-ok').classList.add('hidden');
+                        document.getElementById('scoreboard-list').innerHTML = '';
+                        document.getElementById('exit-modal').classList.add('hidden');
+
                         // Reset UI Lobby State
                         const btnRdy = document.getElementById('btn-ready');
                         const rdyInd = document.getElementById('ready-indicator');
@@ -1971,6 +2179,17 @@
             if (socket) {
                 socket.send(JSON.stringify({ type: 'ready', ready: isNowReady }));
             }
+        });
+
+        // --- Exit Button & Modal ---
+        document.getElementById('btn-hud-exit').addEventListener('click', () => {
+            document.getElementById('exit-modal').classList.remove('hidden');
+        });
+        document.getElementById('btn-cancel-exit').addEventListener('click', () => {
+            document.getElementById('exit-modal').classList.add('hidden');
+        });
+        document.getElementById('btn-confirm-exit').addEventListener('click', () => {
+            window.location.reload();
         });
 
         // --- Fullscreen & iOS Standalone ---
@@ -2740,18 +2959,17 @@
             }
 
             // Wake trailing (all boats)
-            for (let b of netBoats.values()) {
-                let currentSpeed = Math.abs(b.vx) + Math.abs(b.vy);
-                if (currentSpeed > 10) {
-                    let wakeSize = Math.max(2, Math.min(14, currentSpeed / 12));
-                    ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
-                    ctx.beginPath();
-                    let sternX = b.x - Math.cos(b.heading) * b.length / 2;
-                    let sternY = b.y - Math.sin(b.heading) * b.length / 2;
-                    ctx.arc(sternX, sternY, wakeSize, 0, Math.PI * 2);
-                    ctx.fill();
-                }
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter'; // Boiling water effect
+            for (let p of wakeParticles) {
+                // Opacity fades as life drops
+                let alpha = (p.life / p.maxLife) * (p.startOpacity !== undefined ? p.startOpacity : 0.4);
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
             }
+            ctx.restore();
 
             // Draw Dolphins
             for (let d of dolphins) {
@@ -3089,7 +3307,99 @@
 
             if (!state.tutorialOpen) {
                 updateInterpolation(time, dt);
+
+                // --- Dynamic Audio Update ---
+                if (oceanAmbiencePlaying && myBoatId) {
+                    const myBoat = netBoats.get(myBoatId);
+                    if (myBoat) {
+                        const currentSpeed = Math.hypot(myBoat.vx, myBoat.vy);
+
+                        // Map speed 0->300 to a 0.0->1.0 factor for audio bounds
+                        const speedFactor = Math.min(1.0, Math.max(0, currentSpeed / 300));
+
+                        // Wind Noise scales with speed
+                        if (windGainNode && windFilter) {
+                            // Quieter wind as requested, but higher pitched
+                            windGainNode.gain.value = speedFactor * 0.08;
+                            windFilter.frequency.value = 800 + (speedFactor * 600); // 800Hz to 1400Hz
+                        }
+
+                        // Planing Whoosh Hiss
+                        if (planingGainNode) {
+                            if (myBoat.isPlaning) {
+                                planingGainNode.gain.value = Math.min(0.2, planingGainNode.gain.value + dt * 0.5);
+                            } else {
+                                planingGainNode.gain.value = Math.max(0, planingGainNode.gain.value - dt * 1.5);
+                            }
+                        }
+
+                        // Procedural Hull Slaps
+                        // Slower boats slap rarely (every 1-4s). Fast boats slap often (0.15-0.2s delay).
+                        const minSlapDelay = myBoat.isPlaning ? 0.15 : (1.0 - speedFactor) * 1.0 + 0.15;
+                        const maxSlapDelay = myBoat.isPlaning ? 0.2 : (1.0 - speedFactor) * 4.0 + 0.5;
+
+                        if (time > lastHullSlapTime) {
+                            playHullSlap(speedFactor);
+                            lastHullSlapTime = time + (minSlapDelay + Math.random() * (maxSlapDelay - minSlapDelay)) * 1000;
+                        }
+                    }
+                }
             }
+
+            // --- Update Wake Particles ---
+            for (let b of netBoats.values()) {
+                let currentSpeed = Math.hypot(b.vx, b.vy);
+                if (currentSpeed > 5) {
+                    let sternX = b.x - Math.cos(b.heading) * b.length / 2;
+                    let sternY = b.y - Math.sin(b.heading) * b.length / 2;
+
+                    if (b.isPlaning) {
+                        let sideDir = b.heading + Math.PI / 2;
+                        // Spawn zigzag chaotic trailing wake (boiling speedboat style)
+                        for (let i = 0; i < 3; i++) {
+                            // Widen the wake base
+                            let spread = (Math.random() - 0.5) * 20;
+                            // Push foam backwards and sideways
+                            let outSpeed = (Math.random() - 0.5) * 30;
+
+                            wakeParticles.push({
+                                x: sternX + Math.cos(sideDir) * spread,
+                                y: sternY + Math.sin(sideDir) * spread,
+                                vx: Math.cos(sideDir) * outSpeed - Math.cos(b.heading) * (currentSpeed * 0.2),
+                                vy: Math.sin(sideDir) * outSpeed - Math.sin(b.heading) * (currentSpeed * 0.2),
+                                size: 4 + Math.random() * 8, // frothy sizes
+                                life: 1.0 + Math.random() * 1.0,
+                                maxLife: 2.0
+                            });
+                        }
+                    } else if (currentSpeed > 10) {
+                        // Standard trail for non-planing
+                        wakeParticles.push({
+                            x: sternX,
+                            y: sternY,
+                            vx: 0,
+                            vy: 0,
+                            size: Math.max(2, Math.min(14, currentSpeed / 12)),
+                            growthRate: 0, // Keeps shape
+                            startOpacity: 0.35, // Starts solid
+                            life: 0.15, // Fades very quickly
+                            maxLife: 0.15
+                        });
+                    }
+                }
+            }
+
+            for (let i = wakeParticles.length - 1; i >= 0; i--) {
+                let p = wakeParticles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.size += dt * (p.growthRate !== undefined ? p.growthRate : 5); // Foam expands if it has a growth rate
+                p.life -= dt;
+                if (p.life <= 0) {
+                    wakeParticles.splice(i, 1);
+                }
+            }
+
             drawGame();
             drawMinimap();
 
@@ -3118,6 +3428,17 @@
         idleDraw();
 
     </script>
+    <!-- Exit Confirmation Modal (Hidden by default) -->
+    <div id="exit-modal" class="hidden">
+        <div class="modal-content">
+            <h2>Exit Game?</h2>
+            <p>Are you sure you want to leave this session and return to the main menu?</p>
+            <div class="modal-actions">
+                <button id="btn-cancel-exit" class="ui-btn">Cancel</button>
+                <button id="btn-confirm-exit" class="ui-btn">Exit</button>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>
