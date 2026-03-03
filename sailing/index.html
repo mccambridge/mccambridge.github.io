@@ -861,7 +861,7 @@
             top: 80px;
             /* Shifted down to prevent hiding behind audio controls */
             right: 20px;
-            z-index: 50;
+            z-index: 200;
             pointer-events: auto;
             /* Restored touch events from the #hud parent override */
         }
@@ -965,12 +965,11 @@
     <div id="game-container">
         <canvas id="canvas"></canvas>
 
-        <div id="hud" class="hidden">
-            <!-- Exit Button -->
-            <div id="exit-btn-wrapper">
-                <button id="btn-hud-exit" class="audio-btn" style="background: rgba(255,255,255,0.75);">✖</button>
-            </div>
+        <div id="exit-btn-wrapper" class="hidden">
+            <button id="btn-hud-exit" class="audio-btn" style="background: rgba(255,255,255,0.75);">✖</button>
+        </div>
 
+        <div id="hud" class="hidden">
             <div id="audio-controls">
                 <div class="audio-control-wrapper">
                     <button id="btn-music" class="audio-btn" title="Toggle Music">🎵</button>
@@ -2255,6 +2254,7 @@
             const playerName = playerNameInput.value.trim();
             startScreen.classList.add('hidden');
             hud.classList.remove('hidden');
+            document.getElementById('exit-btn-wrapper').classList.remove('hidden');
 
             initMultiplayer(mode, playerName);
 
