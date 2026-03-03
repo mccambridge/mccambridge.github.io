@@ -1361,10 +1361,10 @@
             const whistleGain = audioCtx.createGain();
             whistleGain.connect(sfxGain);
 
-            // Amplitude Envelope for the whistle (smooth in/out) reduced 40% (0.25 -> 0.15)
+            // Amplitude Envelope for the whistle (smooth in/out) drastically reduced (0.075 -> 0.025)
             whistleGain.gain.setValueAtTime(0, now);
-            whistleGain.gain.linearRampToValueAtTime(0.15, now + 0.1);
-            whistleGain.gain.setValueAtTime(0.15, now + duration - 0.2);
+            whistleGain.gain.linearRampToValueAtTime(0.025, now + 0.1);
+            whistleGain.gain.setValueAtTime(0.025, now + duration - 0.2);
             whistleGain.gain.linearRampToValueAtTime(0, now + duration);
 
             // We'll use 3 oscillators to fake the fundamental + upper harmonics
@@ -1422,9 +1422,9 @@
                 cOsc.type = 'square';
                 cOsc.frequency.value = 8000 + Math.random() * 4000; // Very high pitch
 
-                // Extremely tight envelope (1-2 milliseconds)
+                // Extremely tight envelope (1-2 milliseconds), lowered gain further
                 cGain.gain.setValueAtTime(0, clickTime);
-                cGain.gain.linearRampToValueAtTime(0.1, clickTime + 0.001);
+                cGain.gain.linearRampToValueAtTime(0.015, clickTime + 0.001);
                 cGain.gain.exponentialRampToValueAtTime(0.001, clickTime + 0.005);
 
                 // Gentle Highpass to remove artifacts
@@ -1830,24 +1830,34 @@
                     hatOsc.start(startTime);
                     hatOsc.stop(startTime + 0.1);
 
-                    // Rimshot/Kick combo on beat 3 (step 4, 12, 20, 28)
-                    if (i % 8 === 4) {
+                    // Soft Rimshot (half as many hits, dropping from every bar to every other bar -> step 12 and 28)
+                    if (i % 16 === 12) {
                         const rimOsc = audioCtx.createOscillator();
                         const rimGain = audioCtx.createGain();
 
-                        rimOsc.type = 'triangle';
-                        rimOsc.frequency.setValueAtTime(400, startTime);
-                        rimOsc.frequency.exponentialRampToValueAtTime(100, startTime + 0.1);
+                        // A high, wooden 'clack' pitch
+                        rimOsc.type = 'square';
+                        rimOsc.frequency.setValueAtTime(800, startTime);
+                        // Very slight pitch drop for the stick impact
+                        rimOsc.frequency.exponentialRampToValueAtTime(600, startTime + 0.05);
 
+                        // Extremely short envelope for a soft rim 'click'
                         rimGain.gain.setValueAtTime(0, startTime);
-                        rimGain.gain.linearRampToValueAtTime(0.4, startTime + 0.01);
-                        rimGain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
+                        rimGain.gain.linearRampToValueAtTime(0.15, startTime + 0.005);
+                        rimGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.05);
+
+                        // Bandpass to make it sound hollow and woody rather than electronic
+                        const rimFilter = audioCtx.createBiquadFilter();
+                        rimFilter.type = 'bandpass';
+                        rimFilter.frequency.value = 1200;
+                        rimFilter.Q.value = 1.5;
 
                         rimOsc.connect(rimGain);
-                        rimGain.connect(musicGain);
+                        rimGain.connect(rimFilter);
+                        rimFilter.connect(musicGain);
 
                         rimOsc.start(startTime);
-                        rimOsc.stop(startTime + 0.2);
+                        rimOsc.stop(startTime + 0.1);
                     }
                 }
             }
