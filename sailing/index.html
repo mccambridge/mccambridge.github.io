@@ -1267,6 +1267,48 @@
             oscs.forEach(osc => osc.stop(audioCtx.currentTime + 0.8));
         }
 
+        function playShipBell() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const now = audioCtx.currentTime;
+
+            // Bell chime happens twice
+            for (let i = 0; i < 2; i++) {
+                const strikeTime = now + (i * 0.4); // 400ms apart
+
+                // Base tone (fundamental)
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.value = 880; // A5
+
+                // Strike envelope
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0, strikeTime);
+                gain.gain.linearRampToValueAtTime(0.4, strikeTime + 0.02); // sharp attack
+                gain.gain.exponentialRampToValueAtTime(0.01, strikeTime + 2.0); // long sustain
+
+                // High harmonic (clank)
+                const hOsc = audioCtx.createOscillator();
+                hOsc.type = 'triangle';
+                hOsc.frequency.value = 1400;
+
+                const hGain = audioCtx.createGain();
+                hGain.gain.setValueAtTime(0, strikeTime);
+                hGain.gain.linearRampToValueAtTime(0.2, strikeTime + 0.01);
+                hGain.gain.exponentialRampToValueAtTime(0.01, strikeTime + 0.3); // fast decay
+
+                osc.connect(gain);
+                hOsc.connect(hGain);
+
+                gain.connect(sfxGain);
+                hGain.connect(sfxGain);
+
+                osc.start(strikeTime);
+                hOsc.start(strikeTime);
+                osc.stop(strikeTime + 2.1);
+                hOsc.stop(strikeTime + 0.4);
+            }
+        }
+
         function playDolphinCackle() {
             if (audioCtx.state === 'suspended') audioCtx.resume();
 
@@ -1278,10 +1320,10 @@
             const whistleGain = audioCtx.createGain();
             whistleGain.connect(sfxGain);
 
-            // Amplitude Envelope for the whistle (smooth in/out)
+            // Amplitude Envelope for the whistle (smooth in/out) reduced 40% (0.25 -> 0.15)
             whistleGain.gain.setValueAtTime(0, now);
-            whistleGain.gain.linearRampToValueAtTime(0.25, now + 0.1);
-            whistleGain.gain.setValueAtTime(0.25, now + duration - 0.2);
+            whistleGain.gain.linearRampToValueAtTime(0.15, now + 0.1);
+            whistleGain.gain.setValueAtTime(0.15, now + duration - 0.2);
             whistleGain.gain.linearRampToValueAtTime(0, now + duration);
 
             // We'll use 3 oscillators to fake the fundamental + upper harmonics
@@ -1939,7 +1981,15 @@
                     playersById = msg.playersById || {};
                 }
                 else if (msg.type === "players_diff") {
-                    if (msg.join) Object.assign(playersById, msg.join);
+                    if (msg.join) {
+                        for (const newId in msg.join) {
+                            if (!playersById[newId] && newId !== myBoatId) {
+                                playShipBell();
+                                console.log(`[Network] ${msg.join[newId].name} joined the map!`);
+                            }
+                        }
+                        Object.assign(playersById, msg.join);
+                    }
                     if (msg.update) Object.assign(playersById, msg.update);
                     if (msg.leave) msg.leave.forEach(id => delete playersById[id]);
                 }
