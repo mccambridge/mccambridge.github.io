@@ -97,13 +97,77 @@
             display: none !important;
         }
 
-        /* Start Screen */
         .title {
             font-size: 2.5rem;
             font-weight: bold;
             color: #fff;
             text-shadow: 2px 2px 0 #2980b9;
             margin-bottom: 2rem;
+        }
+
+        /* Lobby & Racing Overlays */
+        #lobby-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        #lobby-status {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 1px 1px 0 #2c3e50;
+        }
+
+        .btn-ready {
+            background: #e74c3c;
+            /* Red initially */
+            border: 4px solid #fff;
+            border-radius: 12px;
+            padding: 1rem 2rem;
+            cursor: pointer;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .btn-ready.is-ready {
+            background: #2ecc71;
+            /* Green when ready */
+        }
+
+        #countdown-hud {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 6rem;
+            font-weight: 900;
+            color: #f1c40f;
+            text-shadow: 4px 4px 0 #d35400, 0 0 20px rgba(0, 0, 0, 0.5);
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        #race-hud {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.85);
+            padding: 10px 30px;
+            border-radius: 20px;
+            border: 3px solid #34495e;
+            font-size: 2rem;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            color: #2c3e50;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            z-index: 50;
+            pointer-events: none;
         }
 
         .archetype-container {
@@ -166,6 +230,66 @@
             font-size: 14px;
             pointer-events: none;
             z-index: 100;
+        }
+
+        /* Audio Controls */
+        #audio-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+            pointer-events: auto;
+        }
+
+        .audio-btn {
+            background: var(--ui-bg);
+            border: 2px solid #ccc;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s;
+        }
+
+        .audio-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .audio-btn.muted {
+            opacity: 0.5;
+            text-decoration: line-through;
+            background: #e74c3c;
+            color: #fff;
+            border-color: #c0392b;
+        }
+
+        #scoreboard-ok {
+            position: absolute;
+            bottom: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            background: #2ecc71;
+            color: white;
+            border: 3px solid #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            z-index: 105;
+            pointer-events: auto;
+        }
+
+        #scoreboard-ok:hover {
+            background: #27ae60;
         }
 
         /* Wind Indicator */
@@ -655,6 +779,13 @@
         <canvas id="canvas"></canvas>
 
         <div id="hud" class="hidden">
+            <div id="audio-controls">
+                <button id="btn-music" class="audio-btn" title="Toggle Music">🎵</button>
+                <button id="btn-mute" class="audio-btn" title="Toggle All Sound">🔊</button>
+            </div>
+
+            <button id="scoreboard-ok" class="hidden">OK</button>
+
             <div id="wind-compass">
                 <div id="wind-arrow">
                     <svg viewBox="0 0 24 24" width="48" height="48" fill="#3498db">
@@ -718,6 +849,38 @@
             </div>
         </div>
 
+        <div id="lobby-screen" class="overlay hidden" style="background: rgba(44, 62, 80, 0.8);">
+            <div class="title">Regatta verified</div>
+            <div id="lobby-container" style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                <div id="ready-indicator"
+                    style="font-size: 2.5rem; color: #aed581; font-weight: bold; visibility: hidden; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">
+                    Ready!</div>
+                <button class="btn-ready" id="btn-ready">I'm ready to race</button>
+                <div id="lobby-status">0 / 0 ready</div>
+            </div>
+        </div>
+
+        <div id="game-over-screen" class="overlay hidden"
+            style="background: radial-gradient(circle at center, #2fb0cd 0%, #1a7a91 100%); z-index: 150;">
+            <div class="title"
+                style="font-size: 5rem; color: #ffffff; text-shadow: 0 4px 10px rgba(0,0,0,0.3); letter-spacing: 2px;">
+                GAME OVER</div>
+            <div
+                style="font-size: 1.5rem; color: #e0f7fa; margin-bottom: 2rem; text-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                See you at the next mark!</div>
+            <div class="archetype-container" style="flex-direction: column; align-items: center; gap: 20px;">
+                <button class="btn-ship" id="btn-race-again"
+                    style="width: 320px; font-size: 1.5rem; background: #ffffff; color: #2fb0cd; border: 4px solid #e0f7fa;">Race
+                    Again</button>
+                <button class="btn-ship" id="btn-exit"
+                    style="width: 320px; font-size: 1.5rem; background: #e74c3c; border: 4px solid #c0392b; color: white;">Exit</button>
+            </div>
+        </div>
+
+        <div id="countdown-hud" class="hidden">60</div>
+
+        <div id="race-hud" class="hidden">00:00.00</div>
+
         <!-- iOS: shown only if not in standalone mode -->
         <div id="ios-add-tip"
             style="display:none; margin-top:1rem; padding: 0.7rem 1.1rem; background:rgba(255,255,255,0.85); border: 2px solid #bdc3c7; color: #2c3e50; border-radius:8px; font-size:0.85rem; line-height:1.5; max-width:260px; text-align: left;">
@@ -737,6 +900,7 @@
         };
 
         // --- GAME STATE ---
+        let clientMode = 'free-sail';
         let state = {
             playing: false,
             tutorialOpen: true,
@@ -761,11 +925,520 @@
         let netBoats = new Map(); // string -> interpolated visual BoatState
         let playersById = {}; // string -> { name, boatId, joinedAt }
         let islands = [];
+        let buoys = [];
         let snapshots = []; // Buffer for interpolation
         let timeOffset = null; // Syncs precise server physics ticks to local performance.now()
         let currentTrim = 500; // 0 to 1000
         let currentRudder = 0; // -127 to 127
         let inputInterval = null;
+
+        // --- AUDIO ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let lastCountdownTick = null;
+        let lastMarkTick = null;
+        let lastLapTick = null;
+        let waitingForNextRace = false;
+
+        const btnMute = document.getElementById('btn-mute');
+        const btnMusic = document.getElementById('btn-music');
+        const scoreboardOk = document.getElementById('scoreboard-ok');
+
+        let isMuted = false;
+        let isMusicMuted = false;
+        let scoreboardDismissed = false;
+
+        const sfxGain = audioCtx.createGain();
+        sfxGain.connect(audioCtx.destination);
+        sfxGain.gain.value = 1.0;
+
+        const musicGain = audioCtx.createGain();
+        musicGain.connect(audioCtx.destination);
+        musicGain.gain.value = 1.0;
+
+        function updateMuteState() {
+            sfxGain.gain.value = isMuted ? 0 : 1.0;
+            musicGain.gain.value = (isMuted || isMusicMuted) ? 0 : 1.0;
+        }
+
+        btnMute.addEventListener('click', () => {
+            isMuted = !isMuted;
+            btnMute.classList.toggle('muted', isMuted);
+            btnMute.innerText = isMuted ? '🔇' : '🔊';
+            updateMuteState();
+        });
+
+        btnMusic.addEventListener('click', () => {
+            isMusicMuted = !isMusicMuted;
+            btnMusic.classList.toggle('muted', isMusicMuted);
+            updateMuteState();
+        });
+
+        const btnRaceAgain = document.getElementById('btn-race-again');
+        const btnExit = document.getElementById('btn-exit');
+        const gameOverScreen = document.getElementById('game-over-screen');
+
+        scoreboardOk.addEventListener('click', () => {
+            scoreboardDismissed = true;
+            scoreboardOk.classList.add('hidden');
+            stopJam();
+            gameOverScreen.classList.remove('hidden');
+        });
+
+        btnRaceAgain.addEventListener('click', () => {
+            gameOverScreen.classList.add('hidden');
+            waitingForNextRace = true;
+            if (socket && state.playing) {
+                socket.send(JSON.stringify({ type: 'restart_race' }));
+            }
+        });
+
+        btnExit.addEventListener('click', () => {
+            window.location.reload();
+        });
+
+        function playBeep(freq, duration, type = 'sine') {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+
+            osc.connect(gainNode);
+            gainNode.connect(sfxGain);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function playBell() {
+            playBeep(880, 0.5, 'triangle');
+            setTimeout(() => playBeep(1108, 0.4, 'sine'), 50); // A5 C#6 chord
+        }
+
+        let lastRaceWarningSec = -1;
+        let jamPlayed = false;
+        let hornPlayed = false;
+
+        function playHorn() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            // Cute buzzer stack
+            const freqs = [600, 750, 900];
+            const oscs = [];
+            const gain = audioCtx.createGain();
+
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime + 0.6);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+
+            freqs.forEach(f => {
+                const osc = audioCtx.createOscillator();
+                osc.type = 'square';
+                osc.frequency.value = f;
+                osc.connect(gain);
+                oscs.push(osc);
+            });
+            gain.connect(sfxGain);
+
+            oscs.forEach(osc => osc.start());
+            oscs.forEach(osc => osc.stop(audioCtx.currentTime + 0.8));
+        }
+
+        function playDolphinCackle() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const now = audioCtx.currentTime;
+
+            // 1) The 'Whistle' (Signature contour based on spectrograms)
+            // It sweeps smoothly across ~0.8 to 1.2 seconds, with multiple harmonics.
+            const duration = 1.0 + Math.random() * 0.4;
+            const whistleGain = audioCtx.createGain();
+            whistleGain.connect(sfxGain);
+
+            // Amplitude Envelope for the whistle (smooth in/out)
+            whistleGain.gain.setValueAtTime(0, now);
+            whistleGain.gain.linearRampToValueAtTime(0.25, now + 0.1);
+            whistleGain.gain.setValueAtTime(0.25, now + duration - 0.2);
+            whistleGain.gain.linearRampToValueAtTime(0, now + duration);
+
+            // We'll use 3 oscillators to fake the fundamental + upper harmonics
+            const harmonics = [
+                { ratio: 1.0, amp: 1.0 },   // Fundamental (~3-5kHz)
+                { ratio: 2.05, amp: 0.6 },   // 1st harmonic (~6-10kHz)
+                { ratio: 3.1, amp: 0.3 }    // 2nd harmonic (~9-15kHz)
+            ];
+
+            // The Spectrogram shows a double hump or undulating shape
+            // Start low, sweep up, dip down, sweep back up.
+            const baseF = 3500 + Math.random() * 1000;
+            const peak1 = baseF + 2500;
+            const dip = baseF + 500;
+            const peak2 = baseF + 3000;
+            const endF = baseF - 1000;
+
+            harmonics.forEach(h => {
+                const osc = audioCtx.createOscillator();
+                const hGain = audioCtx.createGain();
+
+                osc.type = 'sine';
+
+                // Frequency contour curve
+                osc.frequency.setValueAtTime(baseF * h.ratio, now);
+                // Ramp up to peak 1
+                osc.frequency.setTargetAtTime(peak1 * h.ratio, now, 0.1);
+                // Dip down
+                osc.frequency.setTargetAtTime(dip * h.ratio, now + (duration * 0.35), 0.1);
+                // Ramp up to peak 2
+                osc.frequency.setTargetAtTime(peak2 * h.ratio, now + (duration * 0.65), 0.15);
+                // Fall off
+                osc.frequency.setTargetAtTime(endF * h.ratio, now + (duration * 0.85), 0.1);
+
+                hGain.gain.value = h.amp;
+
+                osc.connect(hGain);
+                hGain.connect(whistleGain);
+
+                osc.start(now);
+                osc.stop(now + duration);
+            });
+
+            // 2) The 'Clicks' (Echolocation broadband clicks)
+            // They happen simultaneously with the whistle, very rapidly.
+            const clickCount = 15 + Math.floor(Math.random() * 15);
+            for (let i = 0; i < clickCount; i++) {
+                // Space clicks across the duration
+                const clickTime = now + (i * (duration / clickCount)) + (Math.random() * 0.01);
+
+                // Very short, high-pitched square burst sounds like a broadband click
+                const cOsc = audioCtx.createOscillator();
+                const cGain = audioCtx.createGain();
+
+                cOsc.type = 'square';
+                cOsc.frequency.value = 8000 + Math.random() * 4000; // Very high pitch
+
+                // Extremely tight envelope (1-2 milliseconds)
+                cGain.gain.setValueAtTime(0, clickTime);
+                cGain.gain.linearRampToValueAtTime(0.1, clickTime + 0.001);
+                cGain.gain.exponentialRampToValueAtTime(0.001, clickTime + 0.005);
+
+                // Gentle Highpass to remove artifacts
+                const hpf = audioCtx.createBiquadFilter();
+                hpf.type = 'highpass';
+                hpf.frequency.value = 4000;
+
+                cOsc.connect(cGain);
+                cGain.connect(hpf);
+                hpf.connect(sfxGain);
+
+                cOsc.start(clickTime);
+                cOsc.stop(clickTime + 0.01);
+            }
+        }
+
+        function playCheering() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const bufferSize = audioCtx.sampleRate * 4; // 4 seconds
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * 0.5; // White Noise
+            }
+
+            const noiseSource = audioCtx.createBufferSource();
+            noiseSource.buffer = buffer;
+
+            // Bandpass filter to make it sound hollow like a crowd roar
+            const bpf = audioCtx.createBiquadFilter();
+            bpf.type = 'bandpass';
+            bpf.frequency.value = 800; // Crowd roar frequency area
+            bpf.Q.value = 0.5;
+
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 1); // Swell up
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 4); // Fade out
+
+            noiseSource.connect(bpf);
+            bpf.connect(gain);
+            gain.connect(sfxGain);
+
+            noiseSource.start();
+        }
+
+        let jamInterval = null;
+        function stopJam() {
+            if (jamInterval) {
+                clearInterval(jamInterval);
+                jamInterval = null;
+            }
+        }
+
+        let oceanAmbiencePlaying = false;
+        let oceanNoiseSource = null;
+        let seagullInterval = null;
+
+        function startOceanAmbience() {
+            if (oceanAmbiencePlaying) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            oceanAmbiencePlaying = true;
+
+            // Create Pink/White noise buffer for ocean
+            const bufferSize = audioCtx.sampleRate * 5;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+
+            // Simple pink-ish noise approx
+            let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+            for (let i = 0; i < bufferSize; i++) {
+                let white = Math.random() * 2 - 1;
+                b0 = 0.99886 * b0 + white * 0.0555179;
+                b1 = 0.99332 * b1 + white * 0.0750759;
+                b2 = 0.96900 * b2 + white * 0.1538520;
+                b3 = 0.86650 * b3 + white * 0.3104856;
+                b4 = 0.55000 * b4 + white * 0.5329522;
+                b5 = -0.7616 * b5 - white * 0.0168980;
+                data[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+                data[i] *= 0.11; // compensation
+                b6 = white * 0.115926;
+            }
+
+            oceanNoiseSource = audioCtx.createBufferSource();
+            oceanNoiseSource.buffer = buffer;
+            oceanNoiseSource.loop = true;
+
+            // Filter to sweep wave sounds
+            const lpf = audioCtx.createBiquadFilter();
+            lpf.type = 'lowpass';
+            lpf.frequency.value = 400; // base freq
+
+            // LFO to modulate lowpass frequency for rhythmic "wave crashes"
+            const lfo = audioCtx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.value = 0.1; // 10 seconds per wave cycle
+
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 300; // Modulate by 300Hz
+
+            lfo.connect(lfoGain);
+            lfoGain.connect(lpf.frequency);
+
+            const gain = audioCtx.createGain();
+            gain.gain.value = 0.15; // Low volume for ambience
+
+            oceanNoiseSource.connect(lpf);
+            lpf.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            oceanNoiseSource.start();
+            lfo.start();
+
+            // Random seagulls
+            function scheduleSeagull() {
+                if (!oceanAmbiencePlaying) return;
+                playSeagull();
+                seagullInterval = setTimeout(scheduleSeagull, 5000 + Math.random() * 15000); // 5 to 20 seconds between squawks
+            }
+            seagullInterval = setTimeout(scheduleSeagull, 2000);
+        }
+
+        function stopOceanAmbience() {
+            oceanAmbiencePlaying = false;
+            if (oceanNoiseSource) {
+                oceanNoiseSource.stop();
+                oceanNoiseSource.disconnect();
+                oceanNoiseSource = null;
+            }
+            if (seagullInterval) {
+                clearTimeout(seagullInterval);
+                seagullInterval = null;
+            }
+        }
+
+        function playSeagull() {
+            if (audioCtx.state === 'suspended') return;
+            const now = audioCtx.currentTime;
+
+            // A seagull cry usually has 2-4 bursts
+            const bursts = 2 + Math.floor(Math.random() * 3);
+            const basePitch = 600 + Math.random() * 200;
+
+            for (let i = 0; i < bursts; i++) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                const startTime = now + (i * 0.25) + Math.random() * 0.05;
+                const duration = 0.2;
+
+                osc.type = 'sawtooth';
+
+                // Pitch bend down heavily
+                osc.frequency.setValueAtTime(basePitch + 200, startTime);
+                osc.frequency.exponentialRampToValueAtTime(basePitch - 200, startTime + duration);
+
+                // Sharp amplitude envelope
+                gain.gain.setValueAtTime(0, startTime);
+                gain.gain.linearRampToValueAtTime(0.08, startTime + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+
+                // Bandpass filter to make it sound far away and squawky
+                const bpf = audioCtx.createBiquadFilter();
+                bpf.type = 'bandpass';
+                bpf.frequency.value = 800;
+                bpf.Q.value = 2;
+
+                osc.connect(gain);
+                gain.connect(bpf);
+                bpf.connect(sfxGain);
+
+                osc.start(startTime);
+                osc.stop(startTime + duration);
+            }
+        }
+
+        function playReggaeJam() {
+            if (jamInterval) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            function scheduleJam() {
+                // Chill Dub Reggae vibe (A minor to G major)
+                const beatLen = 0.3; // 8th note duration (100 BPM approx)
+                const now = audioCtx.currentTime;
+
+                // Bassline (Triangle, very low) - 32 steps (4 bars)
+                // Frequencies for A2, C3, D3, E3, G2, B2
+                const A2 = 110.00, C3 = 130.81, D3 = 146.83, E3 = 164.81, G2 = 98.00, B2 = 123.47;
+                const bassNotes = [
+                    A2, 0, 0, A2, C3, 0, D3, E3,  // Bar 1: Am
+                    A2, 0, 0, A2, C3, 0, E3, C3,  // Bar 2: Am
+                    G2, 0, 0, G2, B2, 0, A2, G2,  // Bar 3: G
+                    A2, 0, 0, A2, 0, 0, 0, 0   // Bar 4: Am (drops out for dub space)
+                ];
+
+                for (let i = 0; i < 32; i++) {
+                    if (bassNotes[i] === 0) continue;
+
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+
+                    osc.type = 'triangle';
+                    osc.frequency.value = bassNotes[i] / 2; // Drop down to deep sub bass (A1 range)
+
+                    const startTime = now + i * beatLen;
+
+                    // Bouncy bass envelope
+                    gain.gain.setValueAtTime(0, startTime);
+                    gain.gain.linearRampToValueAtTime(0.4, startTime + 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.01, startTime + beatLen * 1.5);
+
+                    const lpf = audioCtx.createBiquadFilter();
+                    lpf.type = 'lowpass';
+                    lpf.frequency.value = 150; // Super deep bass
+
+                    osc.connect(gain);
+                    gain.connect(lpf);
+                    lpf.connect(musicGain);
+
+                    osc.start(startTime);
+                    osc.stop(startTime + beatLen * 1.5);
+                }
+
+                // The "Skank" (Chords on the offbeats)
+                const chordAm = [220.00, 261.63, 329.63]; // A3, C4, E4
+                const chordG = [196.00, 246.94, 293.66]; // G3, B3, D4
+
+                for (let i = 0; i < 32; i++) {
+                    // Play only on offbeat 8th notes (beats 2 and 4 of a 4/4 measure)
+                    if (i % 4 === 2) {
+                        const isG = (Math.floor(i / 8) === 2); // Bar 3 is G
+                        const chord = isG ? chordG : chordAm;
+
+                        const startTime = now + i * beatLen;
+
+                        chord.forEach(freq => {
+                            const osc = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+
+                            osc.type = 'square'; // Classic organ/synth chop
+                            osc.frequency.value = freq;
+
+                            // Very short, snappy envelope
+                            gain.gain.setValueAtTime(0, startTime);
+                            gain.gain.linearRampToValueAtTime(0.05, startTime + 0.01);
+                            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.15);
+
+                            const lpf = audioCtx.createBiquadFilter();
+                            lpf.type = 'lowpass';
+                            lpf.frequency.value = 1200;
+
+                            osc.connect(gain);
+                            gain.connect(lpf);
+                            lpf.connect(musicGain);
+
+                            osc.start(startTime);
+                            osc.stop(startTime + 0.2);
+                        });
+                    }
+                }
+
+                // Percussion ("One Drop" beat: Rimshot/Kick on beat 3)
+                for (let i = 0; i < 32; i++) {
+                    const startTime = now + i * beatLen;
+
+                    // Hi-hats on every 8th note, slightly swung or dynamic
+                    const isOffbeat = (i % 2 === 1);
+
+                    const hatOsc = audioCtx.createOscillator();
+                    const hatGain = audioCtx.createGain();
+
+                    hatOsc.type = 'square';
+                    hatOsc.frequency.value = 6000;
+
+                    hatGain.gain.setValueAtTime(0, startTime);
+                    hatGain.gain.linearRampToValueAtTime(isOffbeat ? 0.02 : 0.01, startTime + 0.005);
+                    hatGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.05);
+
+                    const bpf = audioCtx.createBiquadFilter();
+                    bpf.type = 'bandpass';
+                    bpf.frequency.value = 8000;
+
+                    hatOsc.connect(hatGain);
+                    hatGain.connect(bpf);
+                    bpf.connect(musicGain);
+
+                    hatOsc.start(startTime);
+                    hatOsc.stop(startTime + 0.1);
+
+                    // Rimshot/Kick combo on beat 3 (step 4, 12, 20, 28)
+                    if (i % 8 === 4) {
+                        const rimOsc = audioCtx.createOscillator();
+                        const rimGain = audioCtx.createGain();
+
+                        rimOsc.type = 'triangle';
+                        rimOsc.frequency.setValueAtTime(400, startTime);
+                        rimOsc.frequency.exponentialRampToValueAtTime(100, startTime + 0.1);
+
+                        rimGain.gain.setValueAtTime(0, startTime);
+                        rimGain.gain.linearRampToValueAtTime(0.4, startTime + 0.01);
+                        rimGain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
+
+                        rimOsc.connect(rimGain);
+                        rimGain.connect(musicGain);
+
+                        rimOsc.start(startTime);
+                        rimOsc.stop(startTime + 0.2);
+                    }
+                }
+            }
+
+            scheduleJam();
+            jamInterval = setInterval(scheduleJam, 32 * 0.3 * 1000);
+        }
 
         // --- DOM Elements ---
         const canvas = document.getElementById('canvas');
@@ -774,6 +1447,14 @@
         const playerNameInput = document.getElementById('player-name');
         const btnFree = document.getElementById('btn-free');
         const btnRace = document.getElementById('btn-race');
+
+        // Race UI
+        const lobbyScreen = document.getElementById('lobby-screen');
+        const btnReady = document.getElementById('btn-ready');
+        const lobbyStatus = document.getElementById('lobby-status');
+        const countdownHud = document.getElementById('countdown-hud');
+        const raceHud = document.getElementById('race-hud');
+
         const hud = document.getElementById('hud');
         const tutorial = document.getElementById('tutorial');
         const windArrow = document.getElementById('wind-arrow');
@@ -848,9 +1529,11 @@
                 window.location.hostname.startsWith("192.168.") ||
                 window.location.hostname.startsWith("10.");
 
-            const host = isLocal ? `${window.location.hostname}:1999` : 'broadside-server.mccambridge.partykit.dev';
+            const host = isLocal ? window.location.host : 'broadside-server.mccambridge.partykit.dev';
 
-            const roomName = `broadside-${mode}-v0`;
+            // Force both modes into the same physical room, but track client mode for local UI logic
+            clientMode = mode;
+            const roomName = `broadside-racing-v0`;
 
             socket = new PartySocket({
                 host: host,
@@ -874,6 +1557,7 @@
 
                     state.serverTick = msg.serverTick;
                     if (msg.islands) islands = msg.islands;
+                    if (msg.buoys) buoys = msg.buoys;
 
                     if (msg.windDir !== undefined) {
                         state.trueWind.dir = msg.windDir;
@@ -886,6 +1570,24 @@
                         snapshots = [];
                         netBoats.clear();
                         timeOffset = null;
+                        waitingForNextRace = false;
+                        jamPlayed = false;
+                        hornPlayed = false;
+                        scoreboardDismissed = false;
+
+                        // Reset UI Lobby State
+                        const btnRdy = document.getElementById('btn-ready');
+                        const rdyInd = document.getElementById('ready-indicator');
+                        if (btnRdy) {
+                            btnRdy.classList.remove('is-ready');
+                            btnRdy.innerText = "I'm ready to race";
+                        }
+                        if (rdyInd) rdyInd.style.visibility = 'hidden';
+
+                        // Wipe local cache of players being ready
+                        for (const id in playersById) {
+                            if (playersById[id]) playersById[id].ready = false;
+                        }
                     }
                 }
                 else if (msg.type === "players_full") {
@@ -917,6 +1619,120 @@
 
                     // Keep buffer small (approx ~500ms at 10Hz)
                     if (snapshots.length > 5) snapshots.shift();
+
+                    // Trigger finish visuals for local player
+                    if (myBoatId) {
+                        const myB = msg.data.boats.find(b => b.id === myBoatId);
+                        if (myB && myB.finishTime > 0 && !jamPlayed) {
+                            jamPlayed = true;
+                            playCheering();
+                            scoreboardOk.classList.remove('hidden');
+                        }
+                    }
+
+                    // --- Race State UI Updates ---
+                    const rState = msg.data.raceState;
+                    state.raceState = rState;
+                    state.standings = msg.data.standings || [];
+
+                    if (clientMode === 'racing') {
+                        if (rState === 'LOBBY') {
+                            lobbyScreen.classList.remove('hidden');
+                            countdownHud.classList.add('hidden');
+                            raceHud.classList.add('hidden');
+
+                            let readyCount = 0;
+                            let totalPlayers = Object.keys(playersById).length;
+                            for (const id in playersById) {
+                                if (playersById[id].ready) readyCount++;
+                            }
+                            lobbyStatus.innerText = `${readyCount} / ${totalPlayers} ready`;
+                        } else if (rState === 'COUNTDOWN') {
+                            let amIReady = false;
+                            if (myBoatId && playersById[myBoatId] && playersById[myBoatId].ready) amIReady = true;
+
+                            if (amIReady) {
+                                lobbyScreen.classList.add('hidden');
+                            } else {
+                                lobbyScreen.classList.remove('hidden');
+
+                                let readyCount = 0;
+                                let totalPlayers = Object.keys(playersById).length;
+                                for (const id in playersById) {
+                                    if (playersById[id].ready) readyCount++;
+                                }
+                                lobbyStatus.innerText = `${readyCount} / ${totalPlayers} ready`;
+                            }
+
+                            countdownHud.classList.remove('hidden');
+                            raceHud.classList.add('hidden');
+
+                            let secondsLeft = Math.ceil(msg.data.countdownTimer / 20.0);
+                            countdownHud.innerText = secondsLeft;
+
+                            if (secondsLeft <= 10 && secondsLeft > 0 && lastCountdownTick !== secondsLeft) {
+                                lastCountdownTick = secondsLeft;
+                                playBeep(440, 0.15, 'sine');
+                            }
+                        } else if (rState === 'RACING') {
+                            if (lastCountdownTick !== 0) {
+                                lastCountdownTick = 0;
+                                playBeep(880, 0.4, 'square'); // GO!
+                            }
+
+                            lobbyScreen.classList.add('hidden');
+                            countdownHud.classList.add('hidden');
+                            raceHud.classList.remove('hidden');
+
+                            if (waitingForNextRace) {
+                                raceHud.innerText = "Race in progress. Next race soon!";
+                                // Reduce size for the message
+                                raceHud.style.fontSize = "2rem";
+                                raceHud.style.width = "600px";
+                            } else {
+                                // Reset styles if returning to normal timer
+                                raceHud.style.fontSize = "";
+                                raceHud.style.width = "";
+
+                                // Format timer ms to MM:SS.ms
+                                let ms = msg.data.raceTimer;
+                                let mins = Math.floor(ms / 60000);
+                                let secs = Math.floor((ms % 60000) / 1000);
+                                let hund = Math.floor((ms % 1000) / 10);
+                                raceHud.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${hund.toString().padStart(2, '0')}`;
+
+                                // 1 minute warning
+                                if (mins === 4 && secs === 0 && lastRaceWarningSec !== 0) {
+                                    lastRaceWarningSec = 0;
+                                    playBeep(880, 0.4, 'square');
+                                    setTimeout(() => playBeep(880, 0.4, 'square'), 500);
+                                }
+                                // 10 second countdown
+                                else if (mins === 4 && secs >= 50) {
+                                    let cdSec = 60 - secs;
+                                    if (lastRaceWarningSec !== cdSec) {
+                                        lastRaceWarningSec = cdSec;
+                                        playBeep(440, 0.15, 'sine');
+                                    }
+                                }
+                            }
+
+                        } else if (rState === 'FINISHED') {
+                            lobbyScreen.classList.add('hidden');
+                            countdownHud.classList.add('hidden');
+                            raceHud.classList.add('hidden'); // We use the huge overlay instead now
+
+                            if (!hornPlayed) {
+                                hornPlayed = true;
+                                playHorn();
+                                scoreboardOk.classList.remove('hidden');
+                            }
+                        } else {
+                            lobbyScreen.classList.add('hidden');
+                            countdownHud.classList.add('hidden');
+                            raceHud.classList.add('hidden');
+                        }
+                    }
 
                     // Debug UI updates
                     let now = performance.now();
@@ -960,6 +1776,15 @@
             gestureGranted = true;
             requestFS();
 
+            if (mode === 'racing') {
+                document.getElementById('tutorial').classList.add('hidden');
+                state.tutorialOpen = false;
+                stopOceanAmbience();
+                playReggaeJam(); // Start the race track!
+            } else {
+                document.getElementById('tutorial').classList.remove('hidden');
+            }
+
             const playerName = playerNameInput.value.trim();
             startScreen.classList.add('hidden');
             hud.classList.remove('hidden');
@@ -971,8 +1796,39 @@
             requestAnimationFrame(gameLoop);
         }
 
+        // Initialize audio on first physical interaction so we don't violate autoplay policies
+        const initInteraction = () => {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            if (!state.playing) {
+                startOceanAmbience();
+            }
+            window.removeEventListener('pointerdown', initInteraction);
+            window.removeEventListener('keydown', initInteraction);
+        };
+        window.addEventListener('pointerdown', initInteraction);
+        window.addEventListener('keydown', initInteraction);
+
         btnFree.addEventListener('click', () => startGame('free-sail'));
         btnRace.addEventListener('click', () => startGame('racing'));
+
+        btnReady.addEventListener('click', () => {
+            const isNowReady = !btnReady.classList.contains('is-ready');
+            const readyIndicator = document.getElementById('ready-indicator');
+            if (isNowReady) {
+                btnReady.classList.add('is-ready');
+                btnReady.innerText = "Wait, I'm not ready!";
+                if (readyIndicator) readyIndicator.style.visibility = 'visible';
+            } else {
+                btnReady.classList.remove('is-ready');
+                btnReady.innerText = "I'm ready to race";
+                if (readyIndicator) readyIndicator.style.visibility = 'hidden';
+            }
+            if (socket) {
+                socket.send(JSON.stringify({ type: 'ready', ready: isNowReady }));
+            }
+        });
 
         // --- Fullscreen & iOS Standalone ---
         let gestureGranted = false;
@@ -1200,6 +2056,14 @@
             for (const sBoat of snap1.data.boats) {
                 activeIds.add(sBoat.id);
 
+                if (sBoat.id === myBoatId) {
+                    if (lastMarkTick !== null && (lastMarkTick !== sBoat.mark || lastLapTick !== sBoat.lap)) {
+                        playBell();
+                    }
+                    lastMarkTick = sBoat.mark;
+                    lastLapTick = sBoat.lap;
+                }
+
                 // Find matching boat in snap0
                 const sBoat0 = snap0.data.boats.find(b => b.id === sBoat.id) || sBoat;
 
@@ -1216,6 +2080,9 @@
                         colors: getBoatColors(sBoat.id),
                         width: 22, length: 50
                     };
+                    b.lap = 0;
+                    b.mark = 0;
+                    b.finishTime = 0;
                     netBoats.set(sBoat.id, b);
                 }
 
@@ -1233,13 +2100,21 @@
                 const hdg1 = (sBoat.heading / 65535) * Math.PI * 2;
                 b.heading = hdg0 + angleDiff(hdg1, hdg0) * lerpFactor;
 
-                // Decode Flags bits (1=irons, 2=planing, 4=stuck)
+                // Decode Flags bits (1=irons, 2=planing, 4=stuck, 8=ocs, 16=isRacing)
                 b.inIrons = (sBoat.flags & 1) !== 0;
                 b.isPlaning = (sBoat.flags & 2) !== 0;
+                b.ocs = (sBoat.flags & 8) !== 0;
+                b.isRacing = (sBoat.flags & 16) !== 0;
+                b.lap = sBoat.lap;
+                b.mark = sBoat.mark;
+                b.finishTime = sBoat.finishTime;
 
                 // Dolphin trigger (only fire once per flagged server tick)
                 if ((sBoat.flags & 4) !== 0 && b.lastDolphinTick !== snap1.data.serverTick) {
                     b.lastDolphinTick = snap1.data.serverTick;
+                    if (b.id === myBoatId) {
+                        playDolphinCackle();
+                    }
                     const count = 3 + Math.floor(Math.random() * 5); // 3 to 7
                     for (let i = 0; i < count; i++) {
                         // Spawn them slightly *in front* of the boat, and make them swim *backwards* towards it, 
@@ -1341,8 +2216,13 @@
             ctx.fill();
 
             // Hull Outline
-            ctx.strokeStyle = '#2c3e50';
-            ctx.lineWidth = 2;
+            if (b.ocs && Math.floor(performance.now() / 250) % 2 === 0) {
+                ctx.strokeStyle = '#e74c3c'; // Flashing Red
+                ctx.lineWidth = 3;
+            } else {
+                ctx.strokeStyle = '#2c3e50';
+                ctx.lineWidth = 2;
+            }
             ctx.beginPath();
             ctx.moveTo(b.length / 2, 0); // Bow
             ctx.quadraticCurveTo(0, b.width / 2, -b.length / 2, b.width / 2 - 2); // Stern right
@@ -1437,6 +2317,79 @@
                 ctx.fillText(pInfo.name, 0, 0);
                 ctx.restore();
             }
+
+            // target arrow was moved to the very end of drawGame
+
+            // Floating Race Position Badge
+            if (state.raceState === 'RACING' && b.isRacing && state.standings) {
+                const rank = state.standings.indexOf(b.id) + 1;
+                if (rank > 0) {
+                    ctx.save();
+                    // Just behind the boat
+                    ctx.translate(b.x - Math.cos(b.heading) * (b.length / 2 + 30), b.y - Math.sin(b.heading) * (b.length / 2 + 30));
+                    ctx.scale(1 / state.cameraZoom, 1 / state.cameraZoom);
+
+                    // Golden pill for 1st, Silver for 2nd, Bronze for 3rd, standard for rest
+                    let badgeColor = '#34495e';
+                    if (rank === 1) badgeColor = '#f1c40f';
+                    else if (rank === 2) badgeColor = '#95a5a6';
+                    else if (rank === 3) badgeColor = '#d35400';
+
+                    ctx.fillStyle = badgeColor;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#2c3e50';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    ctx.font = 'bold 12px sans-serif';
+                    ctx.fillStyle = rank === 1 ? '#000000' : '#ffffff';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(rank.toString(), 0, 0);
+                    ctx.restore();
+                }
+            }
+
+            // OCS & Spectator Labels for local player
+            if (b.id === myBoatId) {
+                if (b.ocs) {
+                    ctx.save();
+                    ctx.translate(b.x, b.y + b.length / 2 + 35); // Hover below boat
+                    ctx.scale(1 / state.cameraZoom, 1 / state.cameraZoom);
+                    ctx.font = 'bold 18px sans-serif';
+
+                    // Flashing text
+                    ctx.fillStyle = Math.floor(performance.now() / 250) % 2 === 0 ? '#e74c3c' : '#ffffff';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                    ctx.shadowBlur = 4;
+                    ctx.shadowOffsetY = 2;
+
+                    if (state.raceState === 'COUNTDOWN') {
+                        ctx.fillText("Past the line!", 0, 0);
+                    } else {
+                        ctx.fillText("OCS - Restart!", 0, 0);
+                    }
+                    ctx.restore();
+                } else if ((state.raceState === 'COUNTDOWN' || state.raceState === 'RACING') && !b.isRacing) {
+                    ctx.save();
+                    ctx.translate(b.x, b.y + b.length / 2 + 35);
+                    ctx.scale(1 / state.cameraZoom, 1 / state.cameraZoom);
+                    ctx.font = '14px sans-serif';
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                    ctx.shadowBlur = 4;
+                    ctx.shadowOffsetY = 1;
+                    ctx.fillText("You did not enter this race", 0, 0);
+                    ctx.restore();
+                }
+            }
         }
 
         function drawGame() {
@@ -1491,6 +2444,157 @@
                 ctx.fill();
             }
 
+            // Draw Start / Finish Line
+            if (clientMode === 'racing' && buoys.length >= 2) {
+                const s1 = buoys[0]; // -400, 1000
+                const s2 = buoys[1]; // 400, 1000
+
+                // Safe side box (below line, y > 1000)
+                ctx.fillStyle = 'rgba(46, 204, 113, 0.15)'; // Green
+                ctx.fillRect(s1.x, s1.y, s2.x - s1.x, 300);
+
+                // No-go side box (above line, y < 1000)
+                let noGoColor = 'rgba(255, 0, 0, 0.2)'; // Red by default (pre-start or OCS)
+
+                if (state.raceState === 'RACING' || state.raceState === 'FINISHED') {
+                    const myB = myBoatId ? netBoats.get(myBoatId) : null;
+                    if (myB) {
+                        if (myB.ocs) {
+                            noGoColor = 'rgba(255, 0, 0, 0.2)'; // Red if still OCS
+                        } else if (myB.mark < 2) {
+                            noGoColor = 'rgba(0, 0, 0, 0.15)'; // Gray if onside but hasn't crossed
+                        } else {
+                            noGoColor = 'rgba(46, 204, 113, 0.15)'; // Green if crossed legally
+                        }
+                    } else {
+                        noGoColor = 'rgba(0, 0, 0, 0.15)'; // Gray for spectators
+                    }
+                }
+                ctx.fillStyle = noGoColor;
+                ctx.fillRect(s1.x, s1.y - 300, s2.x - s1.x, 300);
+
+                // Checkered Line
+                ctx.lineWidth = 6;
+                ctx.strokeStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.moveTo(s1.x, s1.y);
+                ctx.lineTo(s2.x, s2.y);
+                ctx.stroke();
+
+                ctx.lineWidth = 6;
+                ctx.strokeStyle = '#000000';
+                ctx.setLineDash([15, 15]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Direction Arrows
+                let drawNorthArrows = true;
+                let drawSouthArrows = false;
+
+                if (state.raceState === 'RACING' || state.raceState === 'FINISHED') {
+                    const localB = myBoatId ? netBoats.get(myBoatId) : null;
+                    if (localB && localB.isRacing) {
+                        if (localB.mark < 2 && localB.lap === 0) {
+                            drawNorthArrows = true;
+                        } else if (localB.mark >= buoys.length && localB.lap === 0) {
+                            drawNorthArrows = false;
+                            drawSouthArrows = true;
+                        } else {
+                            drawNorthArrows = false;
+                            drawSouthArrows = false;
+                        }
+                    } else if (localB && !localB.isRacing && state.raceState === 'RACING') {
+                        // Spectator during race gets no arrows
+                        drawNorthArrows = false;
+                        drawSouthArrows = false;
+                    }
+                }
+
+                if (drawNorthArrows) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; // White pointing up
+                    for (let ax of [-200, 0, 200]) {
+                        ctx.beginPath();
+                        ctx.moveTo(ax, s1.y - 40);
+                        ctx.lineTo(ax - 20, s1.y - 10);
+                        ctx.lineTo(ax + 20, s1.y - 10);
+                        ctx.fill();
+                    }
+                } else if (drawSouthArrows) {
+                    ctx.fillStyle = 'rgba(241, 196, 15, 0.8)'; // Golden pointing down
+                    for (let ax of [-200, 0, 200]) {
+                        ctx.beginPath();
+                        ctx.moveTo(ax, s1.y + 40);
+                        ctx.lineTo(ax - 20, s1.y + 10);
+                        ctx.lineTo(ax + 20, s1.y + 10);
+                        ctx.fill();
+                    }
+                }
+            }
+
+            // Draw Buoys
+            if (clientMode === 'racing') {
+                for (let i = 0; i < buoys.length; i++) {
+                    const buoy = buoys[i];
+                    let currentTargetIndex = -1;
+                    let lap = 0;
+                    if (myBoatId) {
+                        const myB = netBoats.get(myBoatId);
+                        if (myB) {
+                            currentTargetIndex = myB.mark;
+                            lap = myB.lap;
+                        }
+                    }
+
+                    // If it's an actual rounding mark (index >= 2), draw a halo
+                    if (i >= 2) {
+                        ctx.beginPath();
+                        ctx.arc(buoy.x, buoy.y, 150, 0, Math.PI * 2);
+
+                        if (lap > 0 || currentTargetIndex > i) {
+                            // Cleared
+                            ctx.fillStyle = 'rgba(46, 204, 113, 0.1)';
+                            ctx.fill();
+                            ctx.strokeStyle = 'rgba(46, 204, 113, 0.5)';
+                            ctx.setLineDash([]);
+                        } else if (currentTargetIndex === i) {
+                            // Active Target
+                            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                            ctx.fill();
+                            ctx.strokeStyle = 'rgba(241, 196, 15, 0.8)';
+                            ctx.setLineDash([10, 10]);
+                        } else {
+                            // Future Mark
+                            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                            ctx.fill();
+                            ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+                            ctx.setLineDash([5, 5]);
+                        }
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+
+                    // Solid Core
+                    ctx.fillStyle = "#ff5722"; // Bright Orange Mark
+                    ctx.beginPath();
+                    ctx.arc(buoy.x, buoy.y, 8, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Outline
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = "#e64a19";
+                    ctx.stroke();
+
+                    if (i >= 2) {
+                        ctx.fillStyle = 'white';
+                        ctx.font = 'bold 24px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText((i - 1).toString(), buoy.x, buoy.y - 15);
+                    }
+                }
+            }
+
             // Wake trailing (all boats)
             for (let b of netBoats.values()) {
                 let currentSpeed = Math.abs(b.vx) + Math.abs(b.vy);
@@ -1541,7 +2645,166 @@
                 drawBoat(ctx, b);
             }
 
+            const myBTarget = myBoatId ? netBoats.get(myBoatId) : null;
+            if (clientMode === 'racing' && myBTarget && state.raceState === 'RACING' && myBTarget.isRacing && myBTarget.lap === 0) {
+                let targetX, targetY;
+                if (myBTarget.mark >= 5) {
+                    targetX = (buoys[0].x + buoys[1].x) / 2; targetY = buoys[0].y; // center of finish line
+                } else if (myBTarget.mark < 2) {
+                    targetX = (buoys[0].x + buoys[1].x) / 2; targetY = buoys[0].y; // center of start line
+                } else {
+                    targetX = buoys[myBTarget.mark].x; targetY = buoys[myBTarget.mark].y;
+                }
+
+                const angleToMark = Math.atan2(targetY - myBTarget.y, targetX - myBTarget.x);
+                ctx.save();
+                ctx.translate(myBTarget.x, myBTarget.y);
+                ctx.rotate(angleToMark);
+
+                // Draw a golden arrow pointing ahead
+                ctx.fillStyle = 'rgba(241, 196, 15, 0.9)'; // Made slightly more opaque
+                ctx.beginPath();
+                ctx.moveTo(100, 0); // 100px away from boat center
+                ctx.lineTo(80, 10);
+                ctx.lineTo(80, -10);
+                ctx.closePath();
+                ctx.fill();
+
+                // Outline for clarity against buoys
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            // Draw "Find the starting line!" Pointer for COUNTDOWN if offscreen
+            if (clientMode === 'racing' && myBTarget && state.raceState === 'COUNTDOWN') {
+                const startLineX = (buoys[0].x + buoys[1].x) / 2;
+                const startLineY = buoys[0].y;
+
+                // Calculate distance to start line center
+                const dx = startLineX - myBTarget.x;
+                const dy = startLineY - myBTarget.y;
+                const distToStart = Math.sqrt(dx * dx + dy * dy);
+
+                // If they are more than ~800px away from the center of the line, they probably can't see it well
+                if (distToStart > 1000) {
+                    const angleToStart = Math.atan2(dy, dx);
+
+                    ctx.save();
+                    ctx.translate(myBTarget.x, myBTarget.y);
+                    ctx.rotate(angleToStart);
+
+                    // Pulsing Red/Orange Arrow
+                    let pulse = (Math.sin(performance.now() / 150) + 1) / 2; // 0.0 to 1.0
+                    ctx.fillStyle = `rgba(231, 76, 60, ${0.6 + pulse * 0.4})`;
+
+                    ctx.beginPath();
+                    ctx.moveTo(140, 0); // Further out
+                    ctx.lineTo(110, 15);
+                    ctx.lineTo(110, -15);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // Text Label constantly staying upright
+                    ctx.rotate(-angleToStart);
+                    ctx.fillStyle = '#e74c3c';
+                    ctx.font = 'bold 24px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    // Offset text based on angle so it rides "behind" the arrow relative to the boat
+                    let textDistance = 180;
+                    let tx = Math.cos(angleToStart) * textDistance;
+                    let ty = Math.sin(angleToStart) * textDistance;
+
+                    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                    ctx.shadowBlur = 4;
+                    ctx.shadowOffsetY = 2;
+                    ctx.fillText("FIND STARTING LINE", tx, ty);
+
+                    ctx.restore();
+                }
+            }
+
+            // Draw "Race Finished!" Banner for the player if they completed their laps
+            if (myBoatId && !jamPlayed) {
+                const myB = netBoats.get(myBoatId);
+                if (clientMode === 'racing' && myB && (state.raceState === 'RACING' || state.raceState === 'FINISHED') && myB.isRacing && myB.lap > 0) {
+                    ctx.save();
+                    ctx.translate(myB.x, myB.y - 80);
+                    ctx.scale(1 / state.cameraZoom, 1 / state.cameraZoom);
+                    ctx.font = 'bold 36px Arial, sans-serif';
+                    ctx.fillStyle = '#f1c40f'; // Gold
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowOffsetY = 4;
+                    ctx.fillText("Race Finished!", 0, 0);
+                    ctx.restore();
+                }
+            }
+
             ctx.restore();
+
+            // --- LEADERBOARD OVERLAY ---
+            if (clientMode === 'racing' && (state.raceState === 'FINISHED' || jamPlayed) && !scoreboardDismissed) {
+                ctx.fillStyle = 'rgba(28, 51, 68, 0.4)';
+                ctx.fillRect(0, 0, width, height);
+
+                ctx.fillStyle = '#f1c40f'; // Gold
+                ctx.font = 'bold 48px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText("RACE FINISHED!", width / 2, Math.max(100, height * 0.2));
+
+                ctx.font = '24px monospace';
+                ctx.fillStyle = '#ffffff';
+                let startY = Math.max(160, height * 0.2 + 60);
+
+                if (state.standings && state.standings.length > 0) {
+                    for (let i = 0; i < state.standings.length; i++) {
+                        const id = state.standings[i];
+                        const binfo = playersById[id] || { name: 'Unknown' };
+                        let name = binfo.name;
+                        if (name.length > 16) name = name.substring(0, 16);
+
+                        const bState = netBoats.get(id);
+                        let timeStr = "--:--.--";
+
+                        if (bState && bState.lap > 0) {
+                            let ms = bState.finishTime;
+                            let mins = Math.floor(ms / 60000);
+                            let secs = Math.floor((ms % 60000) / 1000);
+                            let hund = Math.floor((ms % 1000) / 10);
+                            timeStr = `${mins}:${secs.toString().padStart(2, '0')}.${hund.toString().padStart(2, '0')}`;
+                        } else if (bState && bState.ocs) {
+                            timeStr = "OCS";
+                        } else if (state.raceState === 'FINISHED') {
+                            timeStr = "DNF";
+                        }
+
+                        ctx.textAlign = 'left';
+                        ctx.fillText(`${i + 1}.`, width / 2 - 200, startY + i * 40);
+                        ctx.fillText(name, width / 2 - 150, startY + i * 40);
+                        ctx.textAlign = 'right';
+                        ctx.fillText(timeStr, width / 2 + 200, startY + i * 40);
+
+                        if (id === myBoatId) {
+                            ctx.strokeStyle = '#2ecc71';
+                            ctx.lineWidth = 2;
+                            ctx.strokeRect(width / 2 - 220, startY + i * 40 - 24, 460, 32);
+                        }
+                    }
+                } else {
+                    ctx.fillText("Waiting for results...", width / 2, startY);
+                }
+            }
         }
 
         // --- MINIMAP ---
@@ -1581,30 +2844,86 @@
                 mCtx.stroke();
             }
 
+            // Buoys and Minimap Course markers
+            const myB = myBoatId ? netBoats.get(myBoatId) : null;
+
+            // Draw Start / Finish Line & Buoys (Racing Only)
+            if (clientMode === 'racing') {
+                if (buoys.length >= 2) {
+                    mCtx.lineWidth = 6 / scale;
+                    // White base
+                    mCtx.strokeStyle = '#ffffff';
+                    mCtx.beginPath();
+                    mCtx.moveTo(buoys[0].x, buoys[0].y);
+                    mCtx.lineTo(buoys[1].x, buoys[1].y);
+                    mCtx.stroke();
+
+                    // Black dashed overlay
+                    mCtx.strokeStyle = '#000000';
+                    mCtx.setLineDash([10 / scale, 10 / scale]);
+                    mCtx.stroke();
+                    mCtx.setLineDash([]);
+                }
+
+                for (let i = 0; i < buoys.length; i++) {
+                    const buoy = buoys[i];
+
+                    if (i >= 2) {
+                        mCtx.fillStyle = '#ff5722';
+                        mCtx.beginPath();
+                        mCtx.arc(buoy.x, buoy.y, 18 / scale, 0, Math.PI * 2);
+                        mCtx.fill();
+
+                        mCtx.fillStyle = 'white';
+                        mCtx.font = `bold ${28 / scale}px sans-serif`;
+                        mCtx.textAlign = 'center';
+                        mCtx.textBaseline = 'middle';
+                        mCtx.fillText((i - 1).toString(), buoy.x, buoy.y);
+                    } else {
+                        mCtx.fillStyle = '#ff5722';
+                        mCtx.beginPath();
+                        mCtx.arc(buoy.x, buoy.y, 8 / scale, 0, Math.PI * 2);
+                        mCtx.fill();
+                    }
+
+                    // If active target, draw a yellow ring around it on minimap
+                    if (myB && myB.lap === 0 && myB.mark === i && i >= 2) {
+                        mCtx.strokeStyle = 'rgba(241, 196, 15, 0.8)';
+                        mCtx.lineWidth = 4 / scale;
+                        mCtx.beginPath();
+                        mCtx.arc(buoy.x, buoy.y, 44 / scale, 0, Math.PI * 2);
+                        mCtx.stroke();
+                    }
+                }
+
+                if (myB && myB.lap === 0 && myB.mark >= 5 && buoys.length >= 2) {
+                    // Highlight finish line
+                    mCtx.strokeStyle = 'rgba(241, 196, 15, 0.8)';
+                    mCtx.lineWidth = 10 / scale;
+                    mCtx.beginPath();
+                    mCtx.moveTo(buoys[0].x, buoys[0].y);
+                    mCtx.lineTo(buoys[1].x, buoys[1].y);
+                    mCtx.stroke();
+                }
+            }
+
             // Boats (GPS-style triangles)
             for (let b of netBoats.values()) {
                 mCtx.save();
                 mCtx.translate(b.x, b.y);
                 mCtx.rotate(b.heading);
 
-                const portColor = b.colors ? b.colors.port : (b.id === myBoatId ? '#2ecc71' : '#ff4757');
-                const stbdColor = b.colors ? b.colors.stbd : (b.id === myBoatId ? '#2ecc71' : '#ff4757');
+                const boatColor = (b.id === myBoatId) ? '#e74c3c' : '#7f8c8d'; // Red for user, gray for others
+                const bScale = (b.id === myBoatId) ? 1.0 : 0.666;
 
-                // Port Side
-                mCtx.fillStyle = portColor;
+                mCtx.scale(bScale, bScale);
+
+                // Solid Vehicle Triangle
+                mCtx.fillStyle = boatColor;
                 mCtx.beginPath();
                 mCtx.moveTo(24 / scale, 0); // Bow
                 mCtx.lineTo(-15 / scale, -12 / scale); // Stern port corner
-                mCtx.lineTo(-15 / scale, 0); // Stern center
-                mCtx.closePath();
-                mCtx.fill();
-
-                // Starboard Side
-                mCtx.fillStyle = stbdColor;
-                mCtx.beginPath();
-                mCtx.moveTo(24 / scale, 0); // Bow
                 mCtx.lineTo(-15 / scale, 12 / scale); // Stern starboard corner
-                mCtx.lineTo(-15 / scale, 0); // Stern center
                 mCtx.closePath();
                 mCtx.fill();
 
