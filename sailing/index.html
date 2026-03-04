@@ -1928,17 +1928,34 @@
                 const beatLen = 0.3; // 8th note duration (100 BPM approx)
                 const now = audioCtx.currentTime;
 
-                // Bassline (Triangle, very low) - 32 steps (4 bars)
-                // Frequencies for A2, C3, D3, E3, G2, B2
-                const A2 = 110.00, C3 = 130.81, D3 = 146.83, E3 = 164.81, G2 = 98.00, B2 = 123.47;
+                // Bassline (Triangle, very low) - 128 steps (16 bars)
+                // Frequencies for F2, G2, A2, B2, C3, D3, E3
+                const F2 = 87.31, G2 = 98.00, A2 = 110.00, B2 = 123.47, C3 = 130.81, D3 = 146.83, E3 = 164.81;
+
+                // Form: Am | G | Am | G | F | G | Am | E
                 const bassNotes = [
                     A2, 0, 0, A2, C3, 0, D3, E3,  // Bar 1: Am
-                    A2, 0, 0, A2, C3, 0, E3, C3,  // Bar 2: Am
-                    G2, 0, 0, G2, B2, 0, A2, G2,  // Bar 3: G
-                    A2, 0, 0, A2, 0, 0, 0, 0   // Bar 4: Am (drops out for dub space)
+                    G2, 0, 0, G2, B2, 0, A2, G2,  // Bar 2: G
+                    A2, 0, 0, A2, C3, 0, D3, E3,  // Bar 3: Am
+                    G2, 0, 0, G2, B2, 0, A2, G2,  // Bar 4: G
+
+                    F2, 0, 0, F2, A2, 0, C3, A2,  // Bar 5: F
+                    G2, 0, 0, G2, B2, 0, D3, B2,  // Bar 6: G
+                    A2, 0, 0, A2, C3, 0, D3, E3,  // Bar 7: Am
+                    E3, 0, D3, C3, B2, A2, G2, F2, // Bar 8: Walk down to Am
+
+                    A2, 0, 0, A2, C3, 0, D3, E3,  // Bar 9: Am
+                    G2, 0, 0, G2, B2, 0, A2, G2,  // Bar 10: G
+                    A2, 0, 0, A2, C3, 0, D3, E3,  // Bar 11: Am
+                    G2, 0, 0, G2, B2, 0, A2, G2,  // Bar 12: G
+
+                    F2, 0, 0, F2, A2, 0, C3, A2,  // Bar 13: F
+                    G2, 0, 0, G2, B2, 0, D3, B2,  // Bar 14: G
+                    A2, 0, 0, A2, 0, 0, A2, C3,   // Bar 15: Am
+                    A2, 0, 0, A2, 0, 0, 0, 0      // Bar 16: Am (drops out for dub space)
                 ];
 
-                for (let i = 0; i < 32; i++) {
+                for (let i = 0; i < 128; i++) {
                     if (bassNotes[i] === 0) continue;
 
                     const osc = audioCtx.createOscillator();
@@ -1951,7 +1968,7 @@
 
                     // Bouncy bass envelope
                     gain.gain.setValueAtTime(0, startTime);
-                    gain.gain.linearRampToValueAtTime(0.4, startTime + 0.05);
+                    gain.gain.linearRampToValueAtTime(0.65, startTime + 0.05);
                     gain.gain.exponentialRampToValueAtTime(0.01, startTime + beatLen * 1.5);
 
                     const lpf = audioCtx.createBiquadFilter();
@@ -1964,17 +1981,26 @@
 
                     osc.start(startTime);
                     osc.stop(startTime + beatLen * 1.5);
+                    activeJamNodes.push(osc);
                 }
 
                 // The "Skank" (Chords on the offbeats)
                 const chordAm = [220.00, 261.63, 329.63]; // A3, C4, E4
                 const chordG = [196.00, 246.94, 293.66]; // G3, B3, D4
+                const chordF = [174.61, 220.00, 261.63]; // F3, A3, C4
 
-                for (let i = 0; i < 32; i++) {
+                const chordProgression = [
+                    chordAm, chordG, chordAm, chordG, // Bars 1-4
+                    chordF, chordG, chordAm, chordAm, // Bars 5-8
+                    chordAm, chordG, chordAm, chordG, // Bars 9-12
+                    chordF, chordG, chordAm, chordAm  // Bars 13-16
+                ];
+
+                for (let i = 0; i < 128; i++) {
                     // Play only on offbeat 8th notes (beats 2 and 4 of a 4/4 measure)
                     if (i % 4 === 2) {
-                        const isG = (Math.floor(i / 8) === 2); // Bar 3 is G
-                        const chord = isG ? chordG : chordAm;
+                        const barIndex = Math.floor(i / 8);
+                        const chord = chordProgression[barIndex];
 
                         const startTime = now + i * beatLen;
 
@@ -1987,7 +2013,7 @@
 
                             // Very short, snappy envelope
                             gain.gain.setValueAtTime(0, startTime);
-                            gain.gain.linearRampToValueAtTime(0.05, startTime + 0.01);
+                            gain.gain.linearRampToValueAtTime(0.1, startTime + 0.01);
                             gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.15);
 
                             const lpf = audioCtx.createBiquadFilter();
@@ -2006,7 +2032,7 @@
                 }
 
                 // Percussion ("One Drop" beat: Rimshot/Kick on beat 3)
-                for (let i = 0; i < 32; i++) {
+                for (let i = 0; i < 128; i++) {
                     const startTime = now + i * beatLen;
 
                     // Hi-hats on every 8th note, slightly swung or dynamic
@@ -2019,7 +2045,7 @@
                     hatOsc.frequency.value = 6000;
 
                     hatGain.gain.setValueAtTime(0, startTime);
-                    hatGain.gain.linearRampToValueAtTime(isOffbeat ? 0.02 : 0.01, startTime + 0.005);
+                    hatGain.gain.linearRampToValueAtTime(isOffbeat ? 0.04 : 0.02, startTime + 0.005);
                     hatGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.05);
 
                     const bpf = audioCtx.createBiquadFilter();
@@ -2047,7 +2073,7 @@
 
                         // Extremely short envelope for a soft rim 'click'
                         rimGain.gain.setValueAtTime(0, startTime);
-                        rimGain.gain.linearRampToValueAtTime(0.15, startTime + 0.005);
+                        rimGain.gain.linearRampToValueAtTime(0.25, startTime + 0.005);
                         rimGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.05);
 
                         // Bandpass to make it sound hollow and woody rather than electronic
@@ -2068,7 +2094,7 @@
             }
 
             scheduleJam();
-            jamInterval = setInterval(scheduleJam, 32 * 0.3 * 1000);
+            jamInterval = setInterval(scheduleJam, 128 * 0.3 * 1000);
         }
 
         // --- TROPICAL JAM (Jimmy Buffet vibes, Steel Drums, 110 BPM) ---
@@ -2111,7 +2137,8 @@
                         osc.frequency.value = bassNotes[i];
 
                         gain.gain.setValueAtTime(0, startTime);
-                        gain.gain.linearRampToValueAtTime(0.5, startTime + 0.02);
+                        // LOW VOLUME NORMALIZATION: 0.5 -> 0.3
+                        gain.gain.linearRampToValueAtTime(0.3, startTime + 0.02);
                         gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
 
                         osc.connect(gain);
@@ -2137,7 +2164,8 @@
 
                             const gain = audioCtx.createGain();
                             gain.gain.setValueAtTime(0, startTime);
-                            gain.gain.linearRampToValueAtTime(0.15, startTime + 0.01);
+                            // LOW VOLUME NORMALIZATION: 0.15 -> 0.08
+                            gain.gain.linearRampToValueAtTime(0.08, startTime + 0.01);
                             gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.4);
 
                             osc.connect(gain);
@@ -2158,7 +2186,8 @@
                         osc.frequency.setValueAtTime(150, startTime);
                         osc.frequency.exponentialRampToValueAtTime(80, startTime + 0.1);
                         gain.gain.setValueAtTime(0, startTime);
-                        gain.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
+                        // LOW VOLUME NORMALIZATION: 0.3 -> 0.15
+                        gain.gain.linearRampToValueAtTime(0.15, startTime + 0.01);
                         gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.1);
                         osc.connect(gain);
                         gain.connect(musicGain);
@@ -2181,58 +2210,114 @@
                 const beatLen = 0.234; // 128 BPM (16th notes = 0.117, 8th notes = 0.234)
                 const now = audioCtx.currentTime;
 
-                // Syncopated synth bass - less harsh filter envelope now
-                const D2 = 73.42, Bb1 = 58.27, C2 = 65.41, A1 = 55.00;
+                // Syncopated synth bass
+                const D2 = 73.42, Bb1 = 58.27, C2 = 65.41, A1 = 55.00, F1 = 43.65;
 
                 // Techno Arpeggio (D minor pentatonic)
-                const arpNotes = [D2 * 4, C2 * 4, D2 * 4, A1 * 4, C2 * 4, D2 * 4, A1 * 4, C2 * 4];
+                const arpNotes1 = [D2 * 4, C2 * 4, D2 * 4, A1 * 4, C2 * 4, D2 * 4, A1 * 4, C2 * 4];
+                const arpNotes2 = [D2 * 4, F1 * 4, D2 * 4, A1 * 4, C2 * 4, D2 * 4, F1 * 4, C2 * 4]; // More aggressive
 
-                // 64 step sequence (8 bars)
-                for (let i = 0; i < 64; i++) {
+                // 128 step sequence (16 bars of 8th notes)
+                // Bar 1-4: Build (Lowpass slowly opens)
+                // Bar 5-8: Tension (Kick removed, snare builds)
+                // Bar 9-16: Full Drop
+
+                for (let i = 0; i < 128; i++) {
                     const startTime = now + (i * beatLen);
 
-                    // The Drop: Bar 5 (steps 32-39) cuts out the kick drum and bass
-                    const isDrop = i >= 32 && i < 40;
+                    const bar = Math.floor(i / 8) + 1; // 1 through 16
 
-                    if (!isDrop && i % 2 === 0) {
-                        // 4-on-the-floor Kick
+                    const isBuild = bar <= 4;
+                    const isTension = bar >= 5 && bar <= 8;
+                    const isDrop = bar >= 9;
+
+                    // 4-on-the-floor Kick (Removed during Tension)
+                    if (!isTension && i % 2 === 0) {
                         const osc = audioCtx.createOscillator();
                         const gain = audioCtx.createGain();
-                        osc.frequency.setValueAtTime(120, startTime);
+                        osc.frequency.setValueAtTime(isBuild ? 100 : 120, startTime);
                         osc.frequency.exponentialRampToValueAtTime(40, startTime + 0.1);
                         gain.gain.setValueAtTime(0, startTime);
-                        gain.gain.linearRampToValueAtTime(0.8, startTime + 0.01);
+
+                        // LOW VOLUME NORMALIZATION: 0.8 -> 0.4
+                        gain.gain.linearRampToValueAtTime(0.4, startTime + 0.01);
                         gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.2);
+
                         osc.connect(gain);
-                        gain.connect(musicGain);
+                        if (isBuild && bar < 3) {
+                            const lpf = audioCtx.createBiquadFilter();
+                            lpf.type = 'lowpass';
+                            lpf.frequency.value = 400; // Muffled kick during first 2 bars
+                            gain.connect(lpf);
+                            lpf.connect(musicGain);
+                        } else {
+                            gain.connect(musicGain);
+                        }
+
                         osc.start(startTime);
                         osc.stop(startTime + 0.2);
                         activeJamNodes.push(osc);
                     }
 
-                    // Building Arpeggio - starts quiet, builds up to the drop, then cuts through
+                    // Snare Build (During Tension only)
+                    if (isTension) {
+                        // Play more frequently as we get closer to the drop
+                        const hit = (bar === 5 || bar === 6) ? (i % 2 === 0) : // Quarter notes
+                            (bar === 7) ? true : // 8th notes
+                                (i % 1 === 0); // All the time but we are in 8ths step size anyway
+
+                        if (hit) {
+                            const osc = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+                            osc.type = 'triangle';
+                            osc.frequency.setValueAtTime(250, startTime);
+                            osc.frequency.exponentialRampToValueAtTime(150, startTime + 0.05);
+
+                            gain.gain.setValueAtTime(0, startTime);
+                            gain.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
+                            gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.1);
+
+                            osc.connect(gain);
+                            gain.connect(musicGain);
+                            osc.start(startTime);
+                            osc.stop(startTime + 0.15);
+                            activeJamNodes.push(osc);
+                        }
+                    }
+
+                    // Arpeggio
                     if (i % 1 === 0) {
-                        const note = arpNotes[i % arpNotes.length];
+                        const arpPattern = (bar >= 13) ? arpNotes2 : arpNotes1; // Change pattern at very end
+                        const note = arpPattern[i % arpPattern.length];
                         const osc = audioCtx.createOscillator();
                         const gain = audioCtx.createGain();
                         osc.type = 'square';
                         osc.frequency.value = note;
 
-                        // Arp gets louder and opens up as the phrase progresses
-                        const arpVol = isDrop ? 0.3 : (i / 64) * 0.15;
+                        // LOW VOLUME NORMALIZATION: 0.3 -> 0.15 peak
+                        let arpVol = 0.15;
+                        if (isBuild) arpVol = 0.05 + ((i / 32) * 0.1); // Swells up
+                        if (isTension) arpVol = 0.15 + ((i - 32) / 32) * 0.1; // Gets louder before drop
+
                         gain.gain.setValueAtTime(0, startTime);
                         gain.gain.linearRampToValueAtTime(arpVol, startTime + 0.01);
                         gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.1);
 
+                        // Low pass filter it during the build so it opens up
+                        const lpf = audioCtx.createBiquadFilter();
+                        lpf.type = 'lowpass';
+                        lpf.frequency.value = isBuild ? (400 + (i / 32) * 3000) : 5000;
+
                         osc.connect(gain);
-                        gain.connect(musicGain);
+                        gain.connect(lpf);
+                        lpf.connect(musicGain);
                         osc.start(startTime);
                         osc.stop(startTime + 0.15);
                         activeJamNodes.push(osc);
                     }
 
-                    if (!isDrop && i % 2 !== 0) {
-                        // Open Hi-Hat on the off-beat
+                    // Open Hi-Hat
+                    if (isDrop && i % 2 !== 0) {
                         const bufferSize = audioCtx.sampleRate * 0.2;
                         const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
                         const output = noiseBuffer.getChannelData(0);
@@ -2246,7 +2331,7 @@
 
                         const gain = audioCtx.createGain();
                         gain.gain.setValueAtTime(0, startTime);
-                        gain.gain.linearRampToValueAtTime(0.3, startTime + 0.02);
+                        gain.gain.linearRampToValueAtTime(0.2, startTime + 0.02);
                         gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
 
                         whiteNoise.connect(filter);
@@ -2256,12 +2341,17 @@
                         activeJamNodes.push(whiteNoise);
                     }
 
-                    if (!isDrop) {
-                        // Fat sawtooth bass - Smoother now
+                    // Fat sawtooth bass
+                    if (isDrop || isBuild) {
                         let baseNote = D2;
-                        if (i >= 16 && i < 32) baseNote = Bb1; // Bar 3-4
-                        if (i >= 40 && i < 48) baseNote = C2;  // Bar 6
-                        if (i >= 48) baseNote = D2;         // Bar 7-8 back to root
+
+                        // Chord progression during the drop
+                        if (isDrop) {
+                            const dropBar = bar - 8; // 1 to 8 of the drop
+                            if (dropBar === 3 || dropBar === 4) baseNote = Bb1;
+                            if (dropBar === 6) baseNote = C2;
+                            if (dropBar === 7) baseNote = A1;
+                        }
 
                         // Syncopated rhythm pattern
                         const bassHit = i % 8 === 0 || i % 8 === 3 || i % 8 === 6;
@@ -2273,14 +2363,14 @@
                             osc.type = 'sawtooth';
                             osc.frequency.value = baseNote;
 
-                            // Much smoother lowpass filter
                             filter.type = 'lowpass';
-                            filter.frequency.setValueAtTime(600, startTime);
+                            filter.frequency.setValueAtTime(isBuild ? 300 : 700, startTime); // Darker in build
                             filter.frequency.exponentialRampToValueAtTime(100, startTime + 0.15);
                             filter.Q.value = 2; // Softer resonance
 
                             gain.gain.setValueAtTime(0, startTime);
-                            gain.gain.linearRampToValueAtTime(0.3, startTime + 0.02);
+                            // LOW VOLUME NORMALIZATION: 0.3 -> 0.2
+                            gain.gain.linearRampToValueAtTime(0.2, startTime + 0.02);
                             gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.2);
 
                             osc.connect(filter);
@@ -2294,7 +2384,7 @@
                 }
             }
             scheduleJam();
-            jamInterval = setInterval(scheduleJam, 64 * 0.234 * 1000);
+            jamInterval = setInterval(scheduleJam, 128 * 0.234 * 1000);
         }
 
         // --- POLYNESIAN JAM (Warm Island Breeze, 95 BPM) ---
