@@ -105,38 +105,96 @@
             margin-bottom: 2rem;
         }
 
-        /* Lobby & Racing Overlays */
+        /* Lobby Banner (non-blocking top bar) */
+        #lobby-screen {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 110;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.2rem;
+            padding: 16px 20px;
+            background: rgba(20, 40, 60, 0.65);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            pointer-events: auto;
+            flex-wrap: wrap;
+        }
+
+        #lobby-screen.hidden {
+            display: none !important;
+        }
+
+        #lobby-screen .title {
+            font-size: 1.1rem;
+            margin-bottom: 0;
+            color: #fff;
+            text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.4);
+            white-space: nowrap;
+        }
+
         #lobby-container {
             display: flex;
-            flex-direction: column;
-            gap: 1rem;
             align-items: center;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         #lobby-status {
-            font-size: 1.5rem;
+            font-size: 0.95rem;
             font-weight: bold;
-            color: #fff;
-            text-shadow: 1px 1px 0 #2c3e50;
+            color: rgba(255, 255, 255, 0.8);
+            text-shadow: none;
+            white-space: nowrap;
+        }
+
+        #ready-indicator {
+            font-size: 1rem !important;
+            color: #aed581 !important;
+            margin: 0 !important;
+        }
+
+        #lobby-warning {
+            font-size: 0.85rem !important;
+            color: #ffb74d !important;
+            margin: 0 !important;
+            white-space: nowrap;
         }
 
         .btn-ready {
             background: #e74c3c;
-            /* Red initially */
-            border: 4px solid #fff;
-            border-radius: 12px;
-            padding: 1rem 2rem;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 8px;
+            padding: 6px 16px;
             cursor: pointer;
-            font-size: 1.2rem;
+            font-size: 0.9rem;
             font-weight: bold;
             color: white;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
             transition: background-color 0.2s, transform 0.1s;
+            white-space: nowrap;
         }
 
         .btn-ready.is-ready {
             background: #2ecc71;
-            /* Green when ready */
+        }
+
+        @media (max-width: 768px) {
+            #lobby-screen {
+                flex-direction: column;
+                gap: 0.5rem;
+                padding: 10px 15px;
+            }
+
+            #lobby-container {
+                gap: 0.5rem;
+            }
         }
 
         #countdown-hud {
@@ -216,7 +274,6 @@
             margin-top: 0.5rem;
         }
 
-        /* HUD */
         #hud {
             position: absolute;
             top: 0;
@@ -224,7 +281,7 @@
             width: 100%;
             height: 100%;
             pointer-events: none;
-            z-index: 10;
+            z-index: 201;
         }
 
         #debug-net-overlay {
@@ -296,6 +353,40 @@
             text-decoration: line-through;
             opacity: 0.8;
             color: #ecf0f1;
+        }
+
+        .genre-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            width: 100%;
+            margin-top: 4px;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            padding-top: 8px;
+        }
+
+        .genre-btn {
+            padding: 4px 8px;
+            border: 2px solid transparent;
+            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.06);
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: bold;
+            color: #2c3e50;
+            text-align: center;
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+
+        .genre-btn:hover {
+            background: rgba(47, 176, 205, 0.15);
+        }
+
+        .genre-btn.active {
+            background: #2fb0cd;
+            color: white;
+            border-color: #1a7a91;
         }
 
         .audio-btn {
@@ -976,6 +1067,13 @@
                     <div id="popup-music" class="audio-popup hidden">
                         <input type="range" id="slider-music" min="0" max="100" value="100">
                         <button id="btn-music-mute" class="audio-mute-toggle">Mute</button>
+                        <div class="genre-selector">
+                            <button class="genre-btn active" data-genre="reggae">🌴 Reggae</button>
+                            <button class="genre-btn" data-genre="tropical">🥁 Tropical</button>
+                            <button class="genre-btn" data-genre="miami">🏖️ Miami</button>
+                            <button class="genre-btn" data-genre="polynesian">🌺 Polynesian</button>
+                            <button class="genre-btn" data-genre="fado">🎸 Fado</button>
+                        </div>
                     </div>
                 </div>
                 <div class="audio-control-wrapper">
@@ -1041,7 +1139,7 @@
         </div>
 
         <div id="start-screen" class="overlay">
-            <div class="title">Broadside</div>
+            <div class="title">Pocket Regatta</div>
             <div class="archetype-container">
                 <input type="text" id="player-name" placeholder="Enter Player Name" maxlength="16"
                     style="font-size: 1.2rem; padding: 10px; text-align: center; border-radius: 8px; border: 2px solid #2c3e50; width: 100%; max-width: 300px; box-sizing: border-box; background: rgba(255,255,255,0.9);" />
@@ -1052,17 +1150,12 @@
             </div>
         </div>
 
-        <div id="lobby-screen" class="overlay hidden" style="background: rgba(44, 62, 80, 0.8);">
-            <div class="title">Regatta verified</div>
-            <div id="lobby-container" style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
-                <div id="ready-indicator"
-                    style="font-size: 2.5rem; color: #aed581; font-weight: bold; visibility: hidden; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">
-                    Ready!</div>
-                <div id="lobby-warning"
-                    style="color: #ffb74d; font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); display: none;">
-                    Two or more sailors required to race
-                </div>
+        <div id="lobby-screen" class="hidden">
+            <div class="title">⛵ Pocket Regatta</div>
+            <div id="lobby-container">
+                <div id="lobby-warning" style="display: none;">Two or more sailors required to race</div>
                 <button class="btn-ready" id="btn-ready">I'm ready to race</button>
+                <div id="ready-indicator" style="visibility: hidden; font-weight: bold;">Ready!</div>
                 <div id="lobby-status">0 / 0 ready</div>
             </div>
         </div>
@@ -1076,11 +1169,9 @@
                 style="font-size: 1.5rem; color: #e0f7fa; margin-bottom: 2rem; text-shadow: 0 2px 5px rgba(0,0,0,0.2);">
                 See you at the next mark!</div>
             <div class="archetype-container" style="flex-direction: column; align-items: center; gap: 20px;">
-                <button class="btn-ship" id="btn-race-again"
-                    style="width: 320px; font-size: 1.5rem; background: #ffffff; color: #2fb0cd; border: 4px solid #e0f7fa;">Race
+                <button class="btn-ship" id="btn-play-again"
+                    style="width: 320px; font-size: 1.5rem; background: #ffffff; color: #2fb0cd; border: 4px solid #e0f7fa;">Play
                     Again</button>
-                <button class="btn-ship" id="btn-exit"
-                    style="width: 320px; font-size: 1.5rem; background: #e74c3c; border: 4px solid #c0392b; color: white;">Exit</button>
             </div>
         </div>
 
@@ -1157,11 +1248,14 @@
         const btnMusicMute = document.getElementById('btn-music-mute');
         const scoreboardOk = document.getElementById('scoreboard-ok');
 
-        let isMuted = false;
-        let isMusicMuted = false;
-        let sfxVolume = 1.0;
-        let musicVolume = 1.0;
+        let isMuted = localStorage.getItem('broadside_sfx_mute') === 'true';
+        let isMusicMuted = localStorage.getItem('broadside_music_mute') === 'true';
+        let sfxVolume = localStorage.getItem('broadside_sfx_vol') !== null ? parseFloat(localStorage.getItem('broadside_sfx_vol')) : 1.0;
+        let musicVolume = localStorage.getItem('broadside_music_vol') !== null ? parseFloat(localStorage.getItem('broadside_music_vol')) : 1.0;
         let scoreboardDismissed = false;
+
+        sliderSfx.value = (sfxVolume * 100).toString();
+        sliderMusic.value = (musicVolume * 100).toString();
 
         const sfxGain = audioCtx.createGain();
         sfxGain.connect(audioCtx.destination);
@@ -1172,6 +1266,11 @@
         musicGain.gain.value = 1.0;
 
         function updateMuteState() {
+            localStorage.setItem('broadside_sfx_mute', isMuted);
+            localStorage.setItem('broadside_music_mute', isMusicMuted);
+            localStorage.setItem('broadside_sfx_vol', sfxVolume);
+            localStorage.setItem('broadside_music_vol', musicVolume);
+
             const now = audioCtx.currentTime;
             sfxGain.gain.setTargetAtTime(isMuted ? 0 : sfxVolume, now, 0.05);
             musicGain.gain.setTargetAtTime((isMuted || isMusicMuted) ? 0 : musicVolume, now, 0.05);
@@ -1185,6 +1284,8 @@
             btnMusicMute.classList.toggle('active', isMusicMuted);
             btnMusicMute.innerText = isMusicMuted ? 'Unmute' : 'Mute';
         }
+
+        updateMuteState(); // Initialize the active UI elements using loaded storage
 
         btnMute.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1231,8 +1332,7 @@
             }
         });
 
-        const btnRaceAgain = document.getElementById('btn-race-again');
-        const btnExit = document.getElementById('btn-exit');
+        const btnPlayAgain = document.getElementById('btn-play-again');
         const gameOverScreen = document.getElementById('game-over-screen');
 
         scoreboardOk.addEventListener('click', () => {
@@ -1242,15 +1342,7 @@
             gameOverScreen.classList.remove('hidden');
         });
 
-        btnRaceAgain.addEventListener('click', () => {
-            gameOverScreen.classList.add('hidden');
-            waitingForNextRace = true;
-            if (socket && state.playing) {
-                socket.send(JSON.stringify({ type: 'restart_race' }));
-            }
-        });
-
-        btnExit.addEventListener('click', () => {
+        btnPlayAgain.addEventListener('click', () => {
             window.location.reload();
         });
 
@@ -1305,6 +1397,80 @@
 
             oscs.forEach(osc => osc.start());
             oscs.forEach(osc => osc.stop(audioCtx.currentTime + 0.8));
+        }
+
+        function playSignalHorn() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const now = audioCtx.currentTime;
+            const dur = 2.0;
+
+            // Primary tone — sawtooth for brassy character
+            const osc1 = audioCtx.createOscillator();
+            osc1.type = 'sawtooth';
+            osc1.frequency.setValueAtTime(520, now);
+            osc1.frequency.linearRampToValueAtTime(480, now + 0.15); // Slight pitch drop on attack
+            osc1.frequency.setValueAtTime(480, now + dur - 0.3);
+            osc1.frequency.linearRampToValueAtTime(460, now + dur); // Sag as air runs out
+
+            // Secondary tone — square wave one octave down for body
+            const osc2 = audioCtx.createOscillator();
+            osc2.type = 'square';
+            osc2.frequency.setValueAtTime(260, now);
+            osc2.frequency.linearRampToValueAtTime(240, now + 0.15);
+            osc2.frequency.setValueAtTime(240, now + dur - 0.3);
+            osc2.frequency.linearRampToValueAtTime(230, now + dur);
+
+            // Bandpass to shape the brassy resonance
+            const bpf = audioCtx.createBiquadFilter();
+            bpf.type = 'bandpass';
+            bpf.frequency.value = 600;
+            bpf.Q.value = 1.5;
+
+            // Pressurized air noise layer
+            const bufferSize = audioCtx.sampleRate * (dur + 0.5);
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const noiseData = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) noiseData[i] = Math.random() * 2 - 1;
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = noiseBuffer;
+
+            const noiseBand = audioCtx.createBiquadFilter();
+            noiseBand.type = 'bandpass';
+            noiseBand.frequency.value = 800;
+            noiseBand.Q.value = 2;
+
+            const noiseGain = audioCtx.createGain();
+            noiseGain.gain.setValueAtTime(0, now);
+            noiseGain.gain.linearRampToValueAtTime(0.04, now + 0.08);
+            noiseGain.gain.setValueAtTime(0.04, now + dur - 0.3);
+            noiseGain.gain.linearRampToValueAtTime(0, now + dur);
+            noise.connect(noiseBand);
+            noiseBand.connect(noiseGain);
+            noiseGain.connect(sfxGain);
+
+            // Main gain envelope — quick attack, sustained blast, natural tail-off
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.22, now + 0.06);
+            gain.gain.setValueAtTime(0.22, now + dur - 0.4);
+            gain.gain.linearRampToValueAtTime(0, now + dur);
+
+            // Mix osc2 quieter
+            const gain2 = audioCtx.createGain();
+            gain2.gain.value = 0.3;
+
+            osc1.connect(bpf);
+            osc2.connect(gain2);
+            gain2.connect(bpf);
+            bpf.connect(gain);
+            gain.connect(sfxGain);
+
+            osc1.start(now);
+            osc2.start(now);
+            noise.start(now);
+            osc1.stop(now + dur + 0.1);
+            osc2.stop(now + dur + 0.1);
+            noise.stop(now + dur + 0.1);
         }
 
         function playShipBell() {
@@ -1472,12 +1638,49 @@
         }
 
         let jamInterval = null;
+        let activeJamNodes = [];
+        let currentGenre = localStorage.getItem('broadside_genre') || 'reggae';
+
+        // Initialize the correct genre button as active on load
+        document.querySelectorAll('.genre-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.genre === currentGenre);
+        });
+
         function stopJam() {
             if (jamInterval) {
                 clearInterval(jamInterval);
                 jamInterval = null;
             }
+            // Hard-stop all currently scheduled notes so genres don't overlap when hot-swapping
+            activeJamNodes.forEach(node => {
+                try { node.stop(); } catch (e) { /* ignore already stopped */ }
+            });
+            activeJamNodes = [];
         }
+
+        function playCurrentJam() {
+            stopJam();
+            switch (currentGenre) {
+                case 'reggae': playReggaeJam(); break;
+                case 'tropical': playTropicalJam(); break;
+                case 'miami': playMiamiJam(); break;
+                case 'polynesian': playPolynesianJam(); break;
+                case 'fado': playFadoJam(); break;
+                default: playReggaeJam();
+            }
+        }
+
+        // Genre button click handlers
+        document.querySelectorAll('.genre-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                currentGenre = btn.dataset.genre;
+                localStorage.setItem('broadside_genre', currentGenre);
+                document.querySelectorAll('.genre-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                if (jamInterval) playCurrentJam(); // Hot-swap if music is playing
+            });
+        });
 
         let oceanAmbiencePlaying = false;
         let oceanNoiseSource = null;
@@ -1797,6 +2000,7 @@
 
                             osc.start(startTime);
                             osc.stop(startTime + 0.2);
+                            activeJamNodes.push(osc);
                         });
                     }
                 }
@@ -1828,6 +2032,7 @@
 
                     hatOsc.start(startTime);
                     hatOsc.stop(startTime + 0.1);
+                    activeJamNodes.push(hatOsc);
 
                     // Soft Rimshot (half as many hits, dropping from every bar to every other bar -> step 12 and 28)
                     if (i % 16 === 12) {
@@ -1857,12 +2062,589 @@
 
                         rimOsc.start(startTime);
                         rimOsc.stop(startTime + 0.1);
+                        activeJamNodes.push(rimOsc);
                     }
                 }
             }
 
             scheduleJam();
             jamInterval = setInterval(scheduleJam, 32 * 0.3 * 1000);
+        }
+
+        // --- TROPICAL JAM (Jimmy Buffet vibes, Steel Drums, 110 BPM) ---
+        function playTropicalJam() {
+            if (jamInterval) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            function scheduleJam() {
+                const beatLen = 0.27; // ~110 BPM
+                const now = audioCtx.currentTime;
+
+                // Calypso/Marimba Bass (C Major to G Major)
+                const C3 = 130.81, D3 = 146.83, E3 = 164.81, F3 = 174.61, G2 = 98.00, A2 = 110.00;
+                const bassNotes = [
+                    C3, 0, G2, 0, C3, 0, G2, 0,  // C
+                    C3, 0, G2, C3, 0, E3, D3, 0, // C
+                    G2, 0, D3, 0, G2, 0, D3, 0,  // G
+                    G2, A2, 123.47, C3, 0, 0, 0, 0   // Walk up (B2 is 123.47)
+                ];
+
+                // Steel Drum Chords (Sine + Non-integer harmonics)
+                const chords = [
+                    [130.81, 164.81, 196.00], // C Major
+                    [130.81, 164.81, 196.00], // C Major
+                    [98.00, 123.47, 146.83],  // G Major
+                    [98.00, 123.47, 146.83]   // G Major
+                ];
+
+                // Conga pattern
+                const conga = [1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0];
+
+                for (let i = 0; i < 32; i++) {
+                    const startTime = now + (i * beatLen);
+
+                    // Bass (wood block / marimba style)
+                    if (bassNotes[i] !== 0) {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.value = bassNotes[i];
+
+                        gain.gain.setValueAtTime(0, startTime);
+                        gain.gain.linearRampToValueAtTime(0.5, startTime + 0.02);
+                        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
+
+                        osc.connect(gain);
+                        gain.connect(musicGain);
+                        osc.start(startTime);
+                        osc.stop(startTime + 0.2);
+                        activeJamNodes.push(osc);
+                    }
+
+                    // Steel Drums (offbeats)
+                    if (i % 2 !== 0 && i !== 31) {
+                        const chord = chords[Math.floor(i / 8)];
+                        chord.forEach(freq => {
+                            // Primary tone
+                            const osc = audioCtx.createOscillator();
+                            osc.type = 'sine';
+                            osc.frequency.value = freq * 2; // Oktave up
+
+                            // Metallic harmonic
+                            const oscM = audioCtx.createOscillator();
+                            oscM.type = 'sine';
+                            oscM.frequency.value = freq * 2 * 2.5; // Sweet spot for steel drum
+
+                            const gain = audioCtx.createGain();
+                            gain.gain.setValueAtTime(0, startTime);
+                            gain.gain.linearRampToValueAtTime(0.15, startTime + 0.01);
+                            gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.4);
+
+                            osc.connect(gain);
+                            oscM.connect(gain);
+                            gain.connect(musicGain);
+                            osc.start(startTime);
+                            oscM.start(startTime);
+                            osc.stop(startTime + 0.5);
+                            oscM.stop(startTime + 0.5);
+                            activeJamNodes.push(osc, oscM);
+                        });
+                    }
+
+                    // Congas (filtered tom)
+                    if (conga[i]) {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.frequency.setValueAtTime(150, startTime);
+                        osc.frequency.exponentialRampToValueAtTime(80, startTime + 0.1);
+                        gain.gain.setValueAtTime(0, startTime);
+                        gain.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
+                        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.1);
+                        osc.connect(gain);
+                        gain.connect(musicGain);
+                        osc.start(startTime);
+                        osc.stop(startTime + 0.1);
+                        activeJamNodes.push(osc);
+                    }
+                }
+            }
+            scheduleJam();
+            jamInterval = setInterval(scheduleJam, 32 * 0.27 * 1000);
+        }
+
+        // --- MIAMI JAM (Pittbull vibes, 4-on-floor, 128 BPM) ---
+        function playMiamiJam() {
+            if (jamInterval) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            function scheduleJam() {
+                const beatLen = 0.234; // 128 BPM (16th notes = 0.117, 8th notes = 0.234)
+                const now = audioCtx.currentTime;
+
+                // Syncopated synth bass - less harsh filter envelope now
+                const D2 = 73.42, Bb1 = 58.27, C2 = 65.41, A1 = 55.00;
+
+                // Techno Arpeggio (D minor pentatonic)
+                const arpNotes = [D2 * 4, C2 * 4, D2 * 4, A1 * 4, C2 * 4, D2 * 4, A1 * 4, C2 * 4];
+
+                // 64 step sequence (8 bars)
+                for (let i = 0; i < 64; i++) {
+                    const startTime = now + (i * beatLen);
+
+                    // The Drop: Bar 5 (steps 32-39) cuts out the kick drum and bass
+                    const isDrop = i >= 32 && i < 40;
+
+                    if (!isDrop && i % 2 === 0) {
+                        // 4-on-the-floor Kick
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.frequency.setValueAtTime(120, startTime);
+                        osc.frequency.exponentialRampToValueAtTime(40, startTime + 0.1);
+                        gain.gain.setValueAtTime(0, startTime);
+                        gain.gain.linearRampToValueAtTime(0.8, startTime + 0.01);
+                        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.2);
+                        osc.connect(gain);
+                        gain.connect(musicGain);
+                        osc.start(startTime);
+                        osc.stop(startTime + 0.2);
+                        activeJamNodes.push(osc);
+                    }
+
+                    // Building Arpeggio - starts quiet, builds up to the drop, then cuts through
+                    if (i % 1 === 0) {
+                        const note = arpNotes[i % arpNotes.length];
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'square';
+                        osc.frequency.value = note;
+
+                        // Arp gets louder and opens up as the phrase progresses
+                        const arpVol = isDrop ? 0.3 : (i / 64) * 0.15;
+                        gain.gain.setValueAtTime(0, startTime);
+                        gain.gain.linearRampToValueAtTime(arpVol, startTime + 0.01);
+                        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.1);
+
+                        osc.connect(gain);
+                        gain.connect(musicGain);
+                        osc.start(startTime);
+                        osc.stop(startTime + 0.15);
+                        activeJamNodes.push(osc);
+                    }
+
+                    if (!isDrop && i % 2 !== 0) {
+                        // Open Hi-Hat on the off-beat
+                        const bufferSize = audioCtx.sampleRate * 0.2;
+                        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                        const output = noiseBuffer.getChannelData(0);
+                        for (let j = 0; j < bufferSize; j++) output[j] = Math.random() * 2 - 1;
+                        const whiteNoise = audioCtx.createBufferSource();
+                        whiteNoise.buffer = noiseBuffer;
+
+                        const filter = audioCtx.createBiquadFilter();
+                        filter.type = 'highpass';
+                        filter.frequency.value = 5000;
+
+                        const gain = audioCtx.createGain();
+                        gain.gain.setValueAtTime(0, startTime);
+                        gain.gain.linearRampToValueAtTime(0.3, startTime + 0.02);
+                        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
+
+                        whiteNoise.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(musicGain);
+                        whiteNoise.start(startTime);
+                        activeJamNodes.push(whiteNoise);
+                    }
+
+                    if (!isDrop) {
+                        // Fat sawtooth bass - Smoother now
+                        let baseNote = D2;
+                        if (i >= 16 && i < 32) baseNote = Bb1; // Bar 3-4
+                        if (i >= 40 && i < 48) baseNote = C2;  // Bar 6
+                        if (i >= 48) baseNote = D2;         // Bar 7-8 back to root
+
+                        // Syncopated rhythm pattern
+                        const bassHit = i % 8 === 0 || i % 8 === 3 || i % 8 === 6;
+
+                        if (bassHit) {
+                            const osc = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+                            const filter = audioCtx.createBiquadFilter();
+                            osc.type = 'sawtooth';
+                            osc.frequency.value = baseNote;
+
+                            // Much smoother lowpass filter
+                            filter.type = 'lowpass';
+                            filter.frequency.setValueAtTime(600, startTime);
+                            filter.frequency.exponentialRampToValueAtTime(100, startTime + 0.15);
+                            filter.Q.value = 2; // Softer resonance
+
+                            gain.gain.setValueAtTime(0, startTime);
+                            gain.gain.linearRampToValueAtTime(0.3, startTime + 0.02);
+                            gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.2);
+
+                            osc.connect(filter);
+                            filter.connect(gain);
+                            gain.connect(musicGain);
+                            osc.start(startTime);
+                            osc.stop(startTime + 0.25);
+                            activeJamNodes.push(osc);
+                        }
+                    }
+                }
+            }
+            scheduleJam();
+            jamInterval = setInterval(scheduleJam, 64 * 0.234 * 1000);
+        }
+
+        // --- POLYNESIAN JAM (Warm Island Breeze, 95 BPM) ---
+        function playPolynesianJam() {
+            if (jamInterval) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            function scheduleJam() {
+                const beatLen = 0.315; // ~95 BPM
+                const now = audioCtx.currentTime;
+
+                // 16-Bar Progression
+                const Gmaj = [196.00, 246.94, 293.66, 392.00]; // G3, B3, D4, G4
+                const Cmaj = [261.63, 329.63, 392.00, 523.25]; // C4, E4, G4, C5
+                const Dmaj = [220.00, 293.66, 369.99, 440.00]; // A3, D4, F#4, A4
+                const Emin = [164.81, 196.00, 246.94, 329.63]; // E3, G3, B3, E4
+                const Amin = [220.00, 261.63, 329.63, 440.00]; // A3, C4, E4, A4
+
+                const chordProgression = [
+                    Gmaj, Cmaj, Dmaj, Gmaj, // Bars 1-4
+                    Emin, Cmaj, Dmaj, Gmaj, // Bars 5-8
+                    Cmaj, Dmaj, Gmaj, Emin, // Bars 9-12
+                    Amin, Dmaj, Gmaj, Gmaj  // Bars 13-16
+                ];
+
+                const G1 = 49.00, C2 = 65.41, D2 = 73.42, E1 = 41.20, A1 = 55.00;
+                const bassProgression = [
+                    G1, C2, D2, G1, // Bars 1-4
+                    E1, C2, D2, G1, // Bars 5-8
+                    C2, D2, G1, E1, // Bars 9-12
+                    A1, D2, G1, G1  // Bars 13-16
+                ];
+
+                for (let i = 0; i < 256; i++) {
+                    const startTime = now + (i * beatLen / 2); // 16th note grid
+                    const barIndex = Math.floor(i / 16);
+                    const currentChord = chordProgression[barIndex];
+
+                    // --- Ukulele Pluck ---
+                    // Syncopated island strumming pattern
+                    const isStrum = i % 8 === 2 || i % 8 === 4 || i % 8 === 7;
+                    if (isStrum) {
+                        let chord = currentChord;
+
+                        chord.forEach((freq, index) => {
+                            const osc = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+                            const filter = audioCtx.createBiquadFilter();
+
+                            // Plucky square/saw blend
+                            osc.type = index % 2 === 0 ? 'square' : 'sawtooth';
+                            osc.frequency.value = freq;
+
+                            // Slightly offset strumming to mimic real human play
+                            const strumOffset = startTime + (index * 0.015);
+
+                            filter.type = 'lowpass';
+                            filter.frequency.setValueAtTime(2500, strumOffset);
+                            filter.frequency.exponentialRampToValueAtTime(400, strumOffset + 0.1);
+
+                            gain.gain.setValueAtTime(0, strumOffset);
+                            gain.gain.linearRampToValueAtTime(0.06, strumOffset + 0.01); // Quick attack
+                            gain.gain.exponentialRampToValueAtTime(0.001, strumOffset + 0.3); // Quick decay
+
+                            osc.connect(filter);
+                            filter.connect(gain);
+                            gain.connect(musicGain);
+                            osc.start(strumOffset);
+                            osc.stop(strumOffset + 0.4);
+                            activeJamNodes.push(osc);
+                        });
+                    }
+
+                    // --- Warm Oceanic Pad ---
+                    // Plays on the downbeat of every bar
+                    if (i % 16 === 0) {
+                        let chord = currentChord;
+
+                        // Play the chord an octave lower for warmth
+                        chord.forEach((freq) => {
+                            const osc = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+                            const filter = audioCtx.createBiquadFilter();
+
+                            osc.type = 'sawtooth';
+                            osc.frequency.value = freq / 2;
+
+                            // Gentle filter sweep mimicking waves
+                            filter.type = 'lowpass';
+                            filter.frequency.setValueAtTime(300, startTime);
+                            filter.frequency.linearRampToValueAtTime(1000, startTime + 1.0);
+                            filter.frequency.linearRampToValueAtTime(300, startTime + 2.0);
+
+                            gain.gain.setValueAtTime(0, startTime);
+                            gain.gain.linearRampToValueAtTime(0.04, startTime + 0.5); // Very slow attack
+                            gain.gain.linearRampToValueAtTime(0, startTime + (beatLen * 4)); // Fade out over bar
+
+                            osc.connect(filter);
+                            filter.connect(gain);
+                            gain.connect(musicGain);
+                            osc.start(startTime);
+                            osc.stop(startTime + (beatLen * 4));
+                            activeJamNodes.push(osc);
+                        });
+                    }
+
+                    // --- Sub Bass ---
+                    const stepInBar = i % 16;
+                    const bassNote = bassProgression[barIndex];
+                    if ((stepInBar === 0 || stepInBar === 4 || stepInBar === 6 || stepInBar === 8 || stepInBar === 12 || stepInBar === 14) && bassNote > 0) {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+
+                        osc.type = 'sine'; // Pure sub
+                        osc.frequency.setValueAtTime(bassNote, startTime);
+
+                        gain.gain.setValueAtTime(0, startTime);
+                        gain.gain.linearRampToValueAtTime(0.8, startTime + 0.05);
+                        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.4);
+
+                        osc.connect(gain);
+                        gain.connect(musicGain);
+                        osc.start(startTime);
+                        osc.stop(startTime + 0.5);
+                        activeJamNodes.push(osc);
+                    }
+
+                    // --- Wooden Percussion (Log Drum / Wood Block) ---
+                    // Syncopated wooden hit on offbeats
+                    if (i % 4 === 2) {
+                        const bufferSize = audioCtx.sampleRate * 0.1;
+                        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                        const output = noiseBuffer.getChannelData(0);
+                        for (let j = 0; j < bufferSize; j++) output[j] = Math.random() * 2 - 1;
+                        const whiteNoise = audioCtx.createBufferSource();
+                        whiteNoise.buffer = noiseBuffer;
+
+                        const filter = audioCtx.createBiquadFilter();
+                        filter.type = 'bandpass';
+                        filter.frequency.value = 800; // Woody resonance frequency
+                        filter.Q.value = 10; // Tight resonance
+
+                        const gain = audioCtx.createGain();
+                        gain.gain.setValueAtTime(0, startTime);
+                        gain.gain.linearRampToValueAtTime(0.4, startTime + 0.005);
+                        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.1);
+
+                        whiteNoise.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(musicGain);
+                        whiteNoise.start(startTime);
+                        activeJamNodes.push(whiteNoise);
+                    }
+                }
+            }
+            scheduleJam();
+            jamInterval = setInterval(scheduleJam, 256 * (0.315 / 2) * 1000); // 256 steps per interval
+        }
+
+        // --- FADO JAM (Melancholic Portuguese Acoustic, 75 BPM, 3/4 Waltz feel) ---
+        function playFadoJam() {
+            if (jamInterval) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            function scheduleJam() {
+                const beatLen = 0.8; // ~75 BPM (Very slow and expressive)
+                const now = audioCtx.currentTime;
+
+                // 3/4 Waltz Time: 3 Beats per Bar. 
+                // 16 bars total = 48 beats. Subdivided into 8th notes = 96 steps.
+
+                // Progression: 16 bars
+                const Dm = [146.83, 174.61, 220.00, 293.66]; // D3, F3, A3, D4
+                const Am = [110.00, 130.81, 164.81, 220.00]; // A2, C3, E3, A3
+                const E7 = [82.41, 123.47, 146.83, 164.81];  // E2, B2, D3, E3
+                const D7 = [146.83, 185.00, 261.63, 293.66]; // D3, F#3, C4, D4
+                const Gm = [98.00, 116.54, 146.83, 196.00];  // G2, Bb2, D3, G3
+                const Cmaj = [130.81, 164.81, 196.00, 261.63]; // C3, E3, G3, C4
+                const Fmaj = [87.31, 110.00, 130.81, 174.61];  // F2, A2, C3, F3
+                const A7 = [164.81, 196.00, 277.18, 329.63];   // E3, G3, C#4, E4
+
+                const chords = [
+                    Dm, A7, Dm, D7, // Bars 1-4
+                    Gm, Dm, A7, Dm, // Bars 5-8
+                    Dm, Cmaj, Fmaj, A7, // Bars 9-12
+                    Dm, Gm, A7, Dm  // Bars 13-16
+                ];
+
+                // Passionate Lead Melody Scale Notes
+                const D4 = 293.66, E4 = 329.63, F4 = 349.23, G4 = 392.00, A4 = 440.00;
+                const Bb4 = 466.16, B4 = 493.88, C5 = 523.25, Cs5 = 554.37, D5 = 587.33;
+                const E5 = 659.25, F5 = 698.46, G5 = 783.99, A5 = 880.00;
+
+                for (let i = 0; i < 96; i++) {
+                    const startTime = now + (i * beatLen / 2); // 8th note grid
+                    const barIndex = Math.floor(i / 6); // Which of the 16 bars are we on
+                    const isDownbeat = i % 6 === 0; // Beat 1 of the 3/4 bar
+                    const isUpbeat = i % 2 === 0 && !isDownbeat; // Beats 2 and 3
+
+                    // --- Nylon String Rhythm Guitar (Strums) ---
+                    if (isUpbeat) {
+                        const currentChord = chords[barIndex];
+
+                        currentChord.forEach((freq, index) => {
+                            const osc = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+                            const filter = audioCtx.createBiquadFilter();
+
+                            osc.type = 'sawtooth'; // Nylon string richness
+                            osc.frequency.value = freq;
+
+                            const strumOffset = startTime + (index * 0.02); // Sweep the strum
+
+                            filter.type = 'lowpass';
+                            filter.frequency.setValueAtTime(3000, strumOffset);
+                            filter.frequency.exponentialRampToValueAtTime(500, strumOffset + 0.2);
+
+                            gain.gain.setValueAtTime(0, strumOffset);
+                            gain.gain.linearRampToValueAtTime(0.06, strumOffset + 0.01);
+                            gain.gain.exponentialRampToValueAtTime(0.001, strumOffset + 0.5);
+
+                            osc.connect(filter);
+                            filter.connect(gain);
+                            gain.connect(musicGain);
+                            osc.start(strumOffset);
+                            osc.stop(strumOffset + 0.6);
+                            activeJamNodes.push(osc);
+                        });
+                    }
+
+                    // --- Sparse Upright Bass ---
+                    if (isDownbeat) {
+                        const rootFreq = chords[barIndex][0] / 2; // Octave down root note
+
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+
+                        osc.type = 'triangle';
+                        // Pitch drop for that plucked upright feel
+                        osc.frequency.setValueAtTime(rootFreq * 1.05, startTime);
+                        osc.frequency.exponentialRampToValueAtTime(rootFreq, startTime + 0.1);
+
+                        gain.gain.setValueAtTime(0, startTime);
+                        gain.gain.linearRampToValueAtTime(0.6, startTime + 0.03);
+                        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 1.2);
+
+                        osc.connect(gain);
+                        gain.connect(musicGain);
+                        osc.start(startTime);
+                        osc.stop(startTime + 1.5);
+                        activeJamNodes.push(osc);
+                    }
+
+                    // --- Portuguese Guitar Lead (Expressive) ---
+                    let noteFreq = 0;
+                    let graceNote = 0;
+                    let duration = beatLen;
+
+                    switch (i) {
+                        // Bars 1-4
+                        case 0: noteFreq = D5; duration = beatLen * 1.5; break;
+                        case 4: noteFreq = E5; break;
+                        case 6: noteFreq = F5; duration = beatLen * 1.5; break;
+                        case 10: noteFreq = E5; break;
+                        case 12: noteFreq = D5; graceNote = E5; duration = beatLen * 2; break; // Trill
+                        case 18: noteFreq = C5; duration = beatLen * 3; break;
+
+                        // Bars 5-8
+                        case 24: noteFreq = Bb4; duration = beatLen * 1.5; break;
+                        case 28: noteFreq = G4; break;
+                        case 30: noteFreq = A4; duration = beatLen * 1.5; break;
+                        case 34: noteFreq = F4; break;
+                        case 36: noteFreq = E4; duration = beatLen * 2; break;
+                        case 42: noteFreq = D4; duration = beatLen * 3; break;
+
+                        // Bars 9-12
+                        case 48: noteFreq = D5; duration = beatLen * 1.5; break;
+                        case 52: noteFreq = F5; break;
+                        case 54: noteFreq = E5; duration = beatLen * 1.5; break;
+                        case 58: noteFreq = G5; break;
+                        case 60: noteFreq = F5; duration = beatLen * 1.5; break;
+                        case 64: noteFreq = A5; break;
+                        case 66: noteFreq = G5; graceNote = A5; duration = beatLen * 3; break; // Trill
+
+                        // Bars 13-16
+                        case 72: noteFreq = F5; break;
+                        case 74: noteFreq = E5; break;
+                        case 76: noteFreq = D5; break;
+                        case 78: noteFreq = Cs5; duration = beatLen * 1.5; break;
+                        case 82: noteFreq = Bb4; break;
+                        case 84: noteFreq = A4; graceNote = Bb4; duration = beatLen * 2; break; // Trill
+                        case 90: noteFreq = D4; duration = beatLen * 3; break; // Final resolution
+                    }
+
+                    if (noteFreq > 0) {
+                        const osc1 = audioCtx.createOscillator();
+                        const osc2 = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        const lfo = audioCtx.createOscillator();
+                        const lfoGain = audioCtx.createGain();
+                        const filter = audioCtx.createBiquadFilter();
+
+                        // Piercing, emotional mix
+                        osc1.type = 'triangle';
+                        osc2.type = 'sawtooth';
+
+                        // Trill simulation (grace note)
+                        if (graceNote > 0) {
+                            osc1.frequency.setValueAtTime(graceNote, startTime);
+                            osc1.frequency.setValueAtTime(noteFreq, startTime + 0.1);
+                            osc2.frequency.setValueAtTime(graceNote, startTime);
+                            osc2.frequency.setValueAtTime(noteFreq, startTime + 0.1);
+                        } else {
+                            osc1.frequency.value = noteFreq;
+                            osc2.frequency.value = noteFreq;
+                        }
+
+                        // Passionate Vibrato (starts delayed)
+                        lfo.frequency.value = 6; // 6Hz
+                        lfoGain.gain.setValueAtTime(0, startTime);
+                        lfoGain.gain.linearRampToValueAtTime(8, startTime + 0.4); // Vibrato fades in
+                        lfo.connect(lfoGain);
+                        lfoGain.connect(osc1.frequency);
+                        lfoGain.connect(osc2.frequency);
+
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(4000, startTime);
+                        filter.frequency.exponentialRampToValueAtTime(1500, startTime + duration);
+
+                        gain.gain.setValueAtTime(0, startTime);
+                        gain.gain.linearRampToValueAtTime(0.12, startTime + 0.05);
+                        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+                        osc1.connect(filter);
+                        osc2.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(musicGain);
+
+                        osc1.start(startTime);
+                        osc2.start(startTime);
+                        lfo.start(startTime);
+                        osc1.stop(startTime + duration + 0.1);
+                        osc2.stop(startTime + duration + 0.1);
+                        lfo.stop(startTime + duration + 0.1);
+                        activeJamNodes.push(osc1, osc2, lfo);
+                    }
+                }
+            }
+            scheduleJam();
+            jamInterval = setInterval(scheduleJam, 96 * (0.8 / 2) * 1000); // 48 beats, 96 eighth notes
         }
 
         // --- DOM Elements ---
@@ -2099,6 +2881,24 @@
                             }
                             lobbyStatus.innerText = `${readyCount} / ${totalPlayers} ready`;
 
+                            // FORCE DOM READINESS STATE TO MATCH SERVER MEMORY TO PREVENT PREVIOUS CACHE DESYNCS
+                            let amIReady = false;
+                            if (myBoatId && playersById[myBoatId] && playersById[myBoatId].ready) amIReady = true;
+
+                            const btnRdy = document.getElementById('btn-ready');
+                            const rdyInd = document.getElementById('ready-indicator');
+                            if (btnRdy) {
+                                if (amIReady) {
+                                    btnRdy.classList.add('is-ready');
+                                    btnRdy.innerText = "Wait, I'm not ready!";
+                                    if (rdyInd) rdyInd.style.visibility = 'visible';
+                                } else {
+                                    btnRdy.classList.remove('is-ready');
+                                    btnRdy.innerText = "I'm ready to race";
+                                    if (rdyInd) rdyInd.style.visibility = 'hidden';
+                                }
+                            }
+
                             const lobbyWarning = document.getElementById('lobby-warning');
                             if (lobbyWarning) {
                                 if (totalPlayers < 2) {
@@ -2136,6 +2936,12 @@
                             let secondsLeft = Math.ceil(msg.data.countdownTimer / 20.0);
                             countdownHud.innerText = secondsLeft;
 
+                            // Play signal horn on the very first frame of countdown
+                            if (lastCountdownTick === null) {
+                                playSignalHorn();
+                                lastCountdownTick = -1; // Mark as played so it doesn't re-trigger
+                            }
+
                             if (secondsLeft <= 10 && secondsLeft > 0 && lastCountdownTick !== secondsLeft) {
                                 lastCountdownTick = secondsLeft;
                                 playBeep(440, 0.15, 'sine');
@@ -2162,6 +2968,7 @@
 
                                 // Format timer ms to MM:SS.ms
                                 let ms = msg.data.raceTimer;
+                                state.raceTimer = ms;
                                 let mins = Math.floor(ms / 60000);
                                 let secs = Math.floor((ms % 60000) / 1000);
                                 let hund = Math.floor((ms % 1000) / 10);
@@ -2245,11 +3052,24 @@
             if (mode === 'racing') {
                 document.getElementById('tutorial').classList.add('hidden');
                 state.tutorialOpen = false;
-                stopOceanAmbience();
-                playReggaeJam(); // Start the race track!
+                // Kill seagulls specifically, but leave the wind and planing audio nodes running!
+                if (seagullInterval) {
+                    clearTimeout(seagullInterval);
+                    seagullInterval = null;
+                }
             } else {
                 document.getElementById('tutorial').classList.remove('hidden');
             }
+
+            // Always play music, but handle the default Free Sail volume case
+            if (mode === 'free-sail' && localStorage.getItem('broadside_music_vol') === null && localStorage.getItem('broadside_music_mute') === null) {
+                // If it's their first time in Free Sail without explicit audio settings, start music muted
+                isMusicMuted = true;
+                musicGain.gain.setValueAtTime(0, audioCtx.currentTime);
+                btnMusicMute.classList.add('active');
+                btnMusicMute.innerText = 'Unmute';
+            }
+            playCurrentJam();
 
             const playerName = playerNameInput.value.trim();
             startScreen.classList.add('hidden');
@@ -2346,6 +3166,12 @@
 
         // --- INPUT HANDLING ---
         window.addEventListener('keydown', (e) => {
+            // Developer Cheat: Press F9 to instantly finish the race
+            if (e.key === 'F9' && state.raceState === 'RACING') {
+                if (socket) socket.send(JSON.stringify({ type: 'cheat_finish' }));
+                return;
+            }
+
             // Hijack Browser Zoom Shortcuts (CMD +/-/0) to trigger our Native Camera
             if (e.metaKey || e.ctrlKey) {
                 if (e.key === '=' || e.key === '+') {
@@ -2851,7 +3677,7 @@
                     if (state.raceState === 'COUNTDOWN') {
                         ctx.fillText("Past the line!", 0, 0);
                     } else {
-                        ctx.fillText("OCS - Restart!", 0, 0);
+                        ctx.fillText("Over early - Restart!", 0, 0);
                     }
                     ctx.restore();
                 } else if ((state.raceState === 'COUNTDOWN' || state.raceState === 'RACING') && !b.isRacing) {
@@ -3156,8 +3982,12 @@
                 ctx.restore();
             }
 
-            // Draw "Find the starting line!" Pointer for COUNTDOWN if offscreen
-            if (clientMode === 'racing' && myBTarget && state.raceState === 'COUNTDOWN') {
+            // Draw "Find the starting line!" Pointer for COUNTDOWN or RACING (if not yet crossed)
+            const needsStartLineGuide = clientMode === 'racing' && myBTarget && buoys.length >= 2 && (
+                state.raceState === 'COUNTDOWN' ||
+                (state.raceState === 'RACING' && myBTarget.mark < 2 && myBTarget.lap === 0 && (state.raceTimer || 0) > 10000)
+            );
+            if (needsStartLineGuide) {
                 const startLineX = (buoys[0].x + buoys[1].x) / 2;
                 const startLineY = buoys[0].y;
 
@@ -3165,6 +3995,9 @@
                 const dx = startLineX - myBTarget.x;
                 const dy = startLineY - myBTarget.y;
                 const distToStart = Math.sqrt(dx * dx + dy * dy);
+
+                const isRacing = state.raceState === 'RACING';
+                const labelText = isRacing ? "CROSS THE STARTING LINE!" : "FIND STARTING LINE";
 
                 // If they are more than ~800px away from the center of the line, they probably can't see it well
                 if (distToStart > 1000) {
@@ -3204,8 +4037,26 @@
                     ctx.shadowColor = 'rgba(0,0,0,0.8)';
                     ctx.shadowBlur = 4;
                     ctx.shadowOffsetY = 2;
-                    ctx.fillText("FIND STARTING LINE", tx, ty);
+                    ctx.fillText(labelText, tx, ty);
 
+                    ctx.restore();
+                }
+
+                // If close enough to see the line but hasn't crossed during RACING, show text above boat
+                if (isRacing && distToStart <= 1000) {
+                    ctx.save();
+                    ctx.translate(myBTarget.x, myBTarget.y - 70);
+                    ctx.scale(1 / state.cameraZoom, 1 / state.cameraZoom);
+                    ctx.font = 'bold 22px monospace';
+                    ctx.fillStyle = '#e74c3c';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                    ctx.shadowBlur = 4;
+                    ctx.shadowOffsetY = 2;
+                    let pulse2 = (Math.sin(performance.now() / 300) + 1) / 2;
+                    ctx.globalAlpha = 0.7 + pulse2 * 0.3;
+                    ctx.fillText("CROSS THE STARTING LINE!", 0, 0);
                     ctx.restore();
                 }
             }
