@@ -1925,7 +1925,12 @@
 
         let jamInterval = null;
         let activeJamNodes = [];
-        let currentGenre = localStorage.getItem("broadside_genre") || "reggae";
+        let currentGenre = localStorage.getItem("broadside_genre");
+        if (!currentGenre) {
+            const genres = ["reggae", "tropical", "miami", "polynesian", "fado"];
+            currentGenre = genres[Math.floor(Math.random() * genres.length)];
+            localStorage.setItem("broadside_genre", currentGenre);
+        }
 
         // Initialize the correct genre button as active on load
         document.querySelectorAll(".genre-btn").forEach((btn) => {
@@ -4302,6 +4307,7 @@
                         heading: (sBoat.heading / 65535) * Math.PI * 2,
                         trim: sBoat.trim / 1000,
                         inIrons: false,
+                        inDirtyAir: false,
                         isPlaning: false,
                         stuckTimer: 0,
                         sailAngle: 0,
@@ -4333,11 +4339,12 @@
                 const hdg1 = (sBoat.heading / 65535) * Math.PI * 2;
                 b.heading = hdg0 + angleDiff(hdg1, hdg0) * lerpFactor;
 
-                // Decode Flags bits (1=irons, 2=planing, 4=stuck, 8=ocs, 16=isRacing)
+                // Decode Flags bits (1=irons, 2=planing, 4=stuck, 8=ocs, 16=isRacing, 32=dirtyAir)
                 b.inIrons = (sBoat.flags & 1) !== 0;
                 b.isPlaning = (sBoat.flags & 2) !== 0;
                 b.ocs = (sBoat.flags & 8) !== 0;
                 b.isRacing = (sBoat.flags & 16) !== 0;
+                b.inDirtyAir = (sBoat.flags & 32) !== 0;
                 b.lap = sBoat.lap;
                 b.mark = sBoat.mark;
                 b.finishTime = sBoat.finishTime;
@@ -4399,7 +4406,10 @@
                     // HUD Setup
                     let feedback = "Good";
                     trimFeedback.className = "good";
-                    if (b.inIrons) {
+                    if (b.inDirtyAir) {
+                        feedback = "Dirty Air!";
+                        trimFeedback.className = "error";
+                    } else if (b.inIrons) {
                         feedback = "In Irons!";
                         trimFeedback.className = "error";
                     } else if (b.isPlaning) {
