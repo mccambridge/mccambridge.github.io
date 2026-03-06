@@ -4038,6 +4038,12 @@
                     return;
                 }
 
+                // Secret: Shift+B to spawn/despawn AI bots
+                if (e.key === "B" && e.shiftKey && state.playing) {
+                    if (socket) socket.send(JSON.stringify({ type: "spawn_bots" }));
+                    return;
+                }
+
                 // Hijack Browser Zoom Shortcuts (CMD +/-/0) to trigger our Native Camera
                 if (e.metaKey || e.ctrlKey) {
                     if (e.key === "=" || e.key === "+") {
@@ -4662,6 +4668,7 @@
                     }
                     ctx.restore();
                 } else if (
+                    clientMode !== "free-sail" &&
                     (state.raceState === "COUNTDOWN" || state.raceState === "RACING") &&
                     !b.isRacing
                 ) {
