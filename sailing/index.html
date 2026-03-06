@@ -3698,8 +3698,10 @@
                             raceHud.classList.add("hidden");
 
                             let readyCount = 0;
-                            let totalPlayers = Object.keys(playersById).length;
+                            let totalPlayers = 0;
                             for (const id in playersById) {
+                                if (id.startsWith('bot_')) continue; // Don't count bots
+                                totalPlayers++;
                                 if (playersById[id].ready) readyCount++;
                             }
                             lobbyStatus.innerText = `${readyCount} / ${totalPlayers} ready`;
@@ -3756,8 +3758,10 @@
                                 lobbyScreen.classList.remove("hidden");
 
                                 let readyCount = 0;
-                                let totalPlayers = Object.keys(playersById).length;
+                                let totalPlayers = 0;
                                 for (const id in playersById) {
+                                    if (id.startsWith('bot_')) continue; // Don't count bots
+                                    totalPlayers++;
                                     if (playersById[id].ready) readyCount++;
                                 }
                                 lobbyStatus.innerText = `${readyCount} / ${totalPlayers} ready`;
@@ -4358,7 +4362,8 @@
                 // Dolphin trigger (only fire once per flagged server tick)
                 if (
                     (sBoat.flags & 4) !== 0 &&
-                    b.lastDolphinTick !== snap1.data.serverTick
+                    b.lastDolphinTick !== snap1.data.serverTick &&
+                    !(clientMode === "racing" && b.id.startsWith('bot_'))
                 ) {
                     b.lastDolphinTick = snap1.data.serverTick;
                     if (b.id === myBoatId) {
@@ -4954,6 +4959,8 @@
 
             // Draw All Boats
             for (let b of netBoats.values()) {
+                // Hide bots in race mode
+                if (clientMode === "racing" && b.id.startsWith('bot_')) continue;
                 drawBoat(ctx, b);
             }
 
@@ -5140,6 +5147,7 @@
                 if (state.standings && state.standings.length > 0) {
                     for (let i = 0; i < state.standings.length; i++) {
                         const id = state.standings[i];
+                        if (id.startsWith('bot_')) continue; // Hide bots from standings
                         const binfo = playersById[id] || { name: "Unknown" };
                         let name = binfo.name;
                         if (name.length > 16) name = name.substring(0, 16);
@@ -5279,6 +5287,8 @@
 
             // Boats (GPS-style triangles)
             for (let b of netBoats.values()) {
+                // Hide bots in race mode
+                if (clientMode === "racing" && b.id.startsWith('bot_')) continue;
                 mCtx.save();
                 mCtx.translate(b.x, b.y);
                 mCtx.rotate(b.heading);
@@ -5373,6 +5383,8 @@
 
             // --- Update Wake Particles ---
             for (let b of netBoats.values()) {
+                // Hide bot wakes in race mode
+                if (clientMode === "racing" && b.id.startsWith('bot_')) continue;
                 let currentSpeed = Math.hypot(b.vx, b.vy);
                 if (currentSpeed > 5) {
                     let sternX = b.x - (Math.cos(b.heading) * b.length) / 2;
